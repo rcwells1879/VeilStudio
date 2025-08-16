@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:tailwindcss.com)",
+      "WebFetch(domain:calldieseldudes.com)",
+      "WebFetch(domain:resend.com)"
+    ],
+    "deny": []
+  }
+}
