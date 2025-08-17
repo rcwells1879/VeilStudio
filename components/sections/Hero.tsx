@@ -44,7 +44,7 @@ export default function Hero() {
               <div className="relative bg-gradient-to-br from-dark-800 to-dark-900 rounded-3xl p-0 overflow-hidden">
                 <div className="aspect-square rounded-2xl overflow-hidden">
                   <Image
-                    src="/images/Hero2.PNG"
+                    src="/images/Hero2.png"
                     alt="VeilStudio Hero"
                     width={500}
                     height={500}

@@ -1,4 +1,8 @@
 ---
 deployment:
   tasks:
+    - export NODEJS_VERSION=18
+    - source ~/.bashrc
+    - npm install
+    - npm run build
     - /bin/cp -R out/* /home/veilcszl/public_html/
