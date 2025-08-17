@@ -2,17 +2,5 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/veilcszl/public_html/
-    - /bin/cp -R * $DEPLOYPATH
-    - /bin/cp -R .next $DEPLOYPATH 2>/dev/null || true
-    - /bin/cp -R out/* $DEPLOYPATH 2>/dev/null || true
-    - /bin/rm -rf $DEPLOYPATH/.git
-    - /bin/rm -rf $DEPLOYPATH/node_modules
-    - /bin/rm -rf $DEPLOYPATH/.cpanel.yml
-    - /bin/rm -rf $DEPLOYPATH/package*.json
-    - /bin/rm -rf $DEPLOYPATH/next.config.js
-    - /bin/rm -rf $DEPLOYPATH/tailwind.config.js
-    - /bin/rm -rf $DEPLOYPATH/postcss.config.js
-    - /bin/rm -rf $DEPLOYPATH/tsconfig.json
-    - /bin/rm -rf $DEPLOYPATH/eslint.config.js
-    - /bin/rm -rf $DEPLOYPATH/README.md
-    - /bin/rm -rf $DEPLOYPATH/CLAUDE.md
+    - /bin/rm -rf $DEPLOYPATH/*
+    - /bin/cp -R out/* $DEPLOYPATH
