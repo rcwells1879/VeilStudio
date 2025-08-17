@@ -43,20 +43,24 @@ export default function ContactSection() {
     setStatus({ type: 'loading', message: 'Sending message...' })
 
     try {
-      const response = await fetch('/api/contact', {
+      const formspreeResponse = await fetch('https://formspree.io/f/xdkdvdol', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          message: formData.message,
+        }),
       })
 
-      if (response.ok) {
+      if (formspreeResponse.ok) {
         setStatus({ type: 'success', message: 'Message sent successfully! We&apos;ll get back to you soon.' })
         setFormData({ fullName: '', email: '', phone: '', message: '' })
       } else {
-        const error = await response.json()
-        setStatus({ type: 'error', message: error.message || 'Failed to send message. Please try again.' })
+        setStatus({ type: 'error', message: 'Failed to send message. Please try again.' })
       }
     } catch (error) {
       setStatus({ type: 'error', message: 'Network error. Please check your connection and try again.' })
