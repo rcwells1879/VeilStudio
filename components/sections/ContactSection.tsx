@@ -52,7 +52,7 @@ export default function ContactSection() {
       })
 
       if (response.ok) {
-        setStatus({ type: 'success', message: 'Message sent successfully! We\'ll get back to you soon.' })
+        setStatus({ type: 'success', message: 'Message sent successfully! We&apos;ll get back to you soon.' })
         setFormData({ fullName: '', email: '', phone: '', message: '' })
       } else {
         const error = await response.json()
@@ -74,7 +74,7 @@ export default function ContactSection() {
               <span className="gradient-text">Ask us Anything</span>
             </h2>
             <p className="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
-              We offer custom chatbot solutions for startups, apps, etc. Let's get to work.
+              We offer custom chatbot solutions for startups, apps, etc. Let&apos;s get to work.
             </p>
           </div>
 

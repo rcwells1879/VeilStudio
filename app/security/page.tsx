@@ -1,11 +1,12 @@
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/sections/Footer'
 import Container from '@/components/ui/Container'
+import Link from 'next/link'
 import { Shield, Lock, Eye, Database, Wifi, Cookie, CheckCircle, FileText, Server, UserCheck } from 'lucide-react'
 
 export const metadata = {
   title: 'Security & Privacy - VeilStudio',
-  description: 'Learn about VeilStudio\'s comprehensive security measures, privacy protections, and safety protocols for AI applications.',
+  description: 'Learn about VeilStudio&apos;s comprehensive security measures, privacy protections, and safety protocols for AI applications.',
 }
 
 const securityFeatures = [
@@ -87,8 +88,8 @@ export default function SecurityPage() {
             </h1>
             
             <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
-              At VeilStudio, security, privacy, and safety aren't afterthoughts—they're our foundation. 
-              We're constantly evolving our defenses against emerging threats, ensuring your data remains 
+              At VeilStudio, security, privacy, and safety aren&apos;t afterthoughts—they&apos;re our foundation. 
+              We&apos;re constantly evolving our defenses against emerging threats, ensuring your data remains 
               locked behind the VEIL.
             </p>
           </div>
@@ -210,16 +211,16 @@ export default function SecurityPage() {
               Ready to Experience <span className="gradient-text">Total Privacy</span>?
             </h2>
             <p className="text-lg text-gray-300">
-              Join thousands of users who've taken control of their AI interactions with VeilStudio's 
+              Join thousands of users who&apos;ve taken control of their AI interactions with VeilStudio&apos;s 
               uncompromising security and privacy protections.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a href="/#contact" className="btn-primary">
+              <Link href="/#contact" className="btn-primary">
                 Get Started Today
-              </a>
-              <a href="/" className="btn-secondary">
+              </Link>
+              <Link href="/" className="btn-secondary">
                 Learn More
-              </a>
+              </Link>
             </div>
           </div>
         </Container>
