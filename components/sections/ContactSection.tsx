@@ -57,7 +57,7 @@ export default function ContactSection() {
       })
 
       if (formspreeResponse.ok) {
-        setStatus({ type: 'success', message: 'Message sent successfully! We&apos;ll get back to you soon.' })
+        setStatus({ type: 'success', message: "Message sent successfully! We'll get back to you soon." })
         setFormData({ fullName: '', email: '', phone: '', message: '' })
       } else {
         setStatus({ type: 'error', message: 'Failed to send message. Please try again.' })
