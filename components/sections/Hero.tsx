@@ -42,12 +42,13 @@ export default function Hero() {
             <div className="relative">
               <div className="absolute inset-0 bg-purple-500 rounded-3xl blur-3xl opacity-30 animate-glow"></div>
               <div className="relative bg-gradient-to-br from-dark-800 to-dark-900 rounded-3xl p-0 overflow-hidden">
-                <div className="aspect-square rounded-2xl overflow-hidden relative">
+                <div className="aspect-square rounded-2xl overflow-hidden">
                   <Image
                     src="/images/Hero2.PNG"
                     alt="VeilStudio Hero"
-                    fill
-                    className="object-cover"
+                    width={500}
+                    height={500}
+                    className="object-cover w-full h-full"
                     priority
                   />
                 </div>

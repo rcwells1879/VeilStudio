@@ -1,6 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/veilcszl/public_html/
-    - /bin/rm -rf $DEPLOYPATH/*
-    - /bin/cp -R out/* $DEPLOYPATH
+    - export DEPLOYPATH=/home/veilcszl/public_html
+    - /bin/cp -R out/. $DEPLOYPATH/
