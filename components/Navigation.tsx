@@ -8,7 +8,7 @@ import { Menu, X } from 'lucide-react'
 const navigation = [
   { name: 'Home', href: '/#home' },
   { name: 'About', href: '/#about' },
-  { name: 'Apps', href: '/#apps' },
+  { name: 'Apps', href: 'https://veilstudio.io/veilchat/index.html' },
   { name: 'Contact', href: '/#contact' },
 ]
 

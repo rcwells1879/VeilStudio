@@ -5,7 +5,7 @@ import { Github, Twitter, Linkedin } from 'lucide-react'
 const footerLinks = {
   product: [
     { name: 'Features', href: '#features' },
-    { name: 'Apps', href: '#apps' },
+    { name: 'Apps', href: 'https://veilstudio.io/veilchat/index.html' },
     { name: 'Pricing', href: '#pricing' },
     { name: 'Documentation', href: '#docs' },
   ],
