@@ -1,19 +1,18 @@
-"use client"
+'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import Button from '../ui/Button'
 import Container from '../ui/Container'
 import { ArrowRight } from 'lucide-react'
-import Link from 'next/link'
 
 export default function Hero() {
   const [isExpanded, setIsExpanded] = useState(false)
-  const buttonContainerRef = useRef<HTMLDivElement>(null)
 
   return (
-    <section id="home" className="relative section-padding overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-radial from-orange-500/10 via-transparent to-transparent"></div>
+    <section id="home" className="relative section-padding overflow-hidden z-20">
+      <div className="absolute inset-0 bg-gradient-radial from-orange-500/10 via-transparent to-transparent -z-10"></div>
       
       <Container>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -35,7 +34,7 @@ export default function Hero() {
               </p>
             </div>
             
-            <div className="relative flex items-center">
+            <div className="flex flex-col items-start">
               <Button 
                 size="lg" 
                 icon={<ArrowRight size={20} />}
@@ -43,25 +42,29 @@ export default function Hero() {
               >
                 Explore Our Apps
               </Button>
-              <div 
-                className={`absolute top-full left-0 flex items-center gap-4 mt-2 transition-all duration-300 ease-in-out ${isExpanded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'}`}>
-                <Link href="https://veilstudio.io/veilpix/">
-                  <Button size="lg" className="bg-gradient-to-br from-black to-teal-500 whitespace-nowrap">
-                    VeilPix
-                  </Button>
-                </Link>
-                <Link href="https://veilstudio.io/veilchat/">
-                  <Button size="lg" className="bg-gradient-to-br from-black to-purple-500 whitespace-nowrap">
-                    VeilChat (beta)
-                  </Button>
-                </Link>
+
+              <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                  <div className="flex items-center gap-4 pt-4">
+                    <Link href="https://veilstudio.io/veilpix/">
+                      <Button size="lg" className="bg-gradient-to-br from-black to-teal-500 whitespace-nowrap">
+                        VeilPix
+                      </Button>
+                    </Link>
+                    <Link href="https://veilstudio.io/veilchat/">
+                      <Button size="lg" className="bg-gradient-to-br from-black to-purple-500 whitespace-nowrap">
+                        VeilChat (beta)
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           
           <div className="relative animate-slide-up">
             <div className="relative">
-              <div className="absolute inset-0 bg-purple-500 rounded-3xl blur-3xl opacity-30 animate-glow"></div>
+              <div className="absolute inset-0 bg-purple-500 rounded-3xl blur-3xl opacity-30 animate-glow -z-10"></div>
               <div className="relative bg-gradient-to-br from-dark-800 to-dark-900 rounded-3xl p-0 overflow-hidden">
                 <div className="aspect-square rounded-2xl overflow-hidden">
                   <Image
