@@ -36,6 +36,5 @@ jobs:
           **/.git*
           **/.git*/**
           **/node_modules/**
-        exclude-glob-from-server: |
-          /public_html/veilchat/**
-          /public_html/apps/**
+          veilchat/**
+          apps/**
