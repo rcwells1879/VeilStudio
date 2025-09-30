@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Container from '../ui/Container'
 import { Github, Facebook, Linkedin } from 'lucide-react'
+import GoogleIcon from '../ui/GoogleIcon'
 
 const footerLinks = {
   product: [
@@ -26,6 +27,7 @@ const socialLinks = [
   { name: 'GitHub', icon: Github, href: 'https://github.com/rcwells1879/' },
   { name: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/profile.php?id=61580840610800' },
   { name: 'LinkedIn', icon: Linkedin, href: 'https://www.linkedin.com/company/veilstudio1/' },
+  { name: 'Google', icon: GoogleIcon, href: 'https://share.google/hOcx0JGyOS8D4FTqR' },
 ]
 
 export default function Footer() {
