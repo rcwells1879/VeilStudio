@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Container from '../ui/Container'
-import { Github, Twitter, Linkedin } from 'lucide-react'
+import { Github, Facebook, Linkedin } from 'lucide-react'
 
 const footerLinks = {
   product: [
@@ -10,8 +10,8 @@ const footerLinks = {
     { name: 'Documentation', href: '#docs' },
   ],
   company: [
-    { name: 'About', href: '#about' },
-    { name: 'Blog', href: '#blog' },
+    { name: 'About', href: 'https://veilstudio.io/security/' },
+    { name: 'Blog', href: 'https://veilstudio.io/veilpix/blog/' },
     { name: 'Careers', href: '#careers' },
     { name: 'Contact', href: '#contact' },
   ],
@@ -23,9 +23,9 @@ const footerLinks = {
 }
 
 const socialLinks = [
-  { name: 'GitHub', icon: Github, href: '#' },
-  { name: 'Twitter', icon: Twitter, href: '#' },
-  { name: 'LinkedIn', icon: Linkedin, href: '#' },
+  { name: 'GitHub', icon: Github, href: 'https://github.com/rcwells1879/' },
+  { name: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/profile.php?id=61580840610800' },
+  { name: 'LinkedIn', icon: Linkedin, href: 'https://www.linkedin.com/company/veilstudio1/' },
 ]
 
 export default function Footer() {
