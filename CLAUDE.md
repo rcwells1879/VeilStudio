@@ -1,95 +1,98 @@
-# VeilStudio Website Project
+# VeilStudio Website
 
-## Project Overview
+Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io). Statically exported Next.js site deployed to cPanel.
 
-VeilStudio website is a modern, privacy-focused landing page built with Next.js 14+ and Tailwind CSS. The site showcases VeilStudio's AI-integrated applications with emphasis on privacy, security, and user control.
+## Stack
 
-## Architecture & Technology Stack
+- **Next.js** `^15.4.1` (App Router, `output: 'export'`) — `next.config.js`
+- **React** `^18.3.1`
+- **TypeScript** `^5.8.3` (strict, `@/*` path alias to repo root)
+- **Tailwind CSS** `^3.4.16` — theme in `tailwind.config.js`
+- **ESLint** `^9.20.0` (flat config, `next/core-web-vitals`) — `eslint.config.js`
+- **Icons**: `lucide-react` + local `components/ui/GoogleIcon.tsx`
+- **Font**: Inter (Tailwind default sans)
+- **Contact form**: Formspree (`https://formspree.io/f/xdkdvdol`, POSTed directly from the client)
+- **Node**: `>=18` required (CI uses Node 18)
 
-- **Framework**: Next.js 14+ with App Router
-- **Styling**: Tailwind CSS with custom utility classes
-- **Typography**: Inter or Satoshi for clean, modern aesthetics
-- **Theme**: Dark theme with gradient accents
-- **Design**: Mobile-first responsive design
+## Directory Layout
+
+```
+app/
+  api/contact/route.ts   # Resend-based handler (unused in prod — see note below)
+  security/page.tsx      # /security page
+  globals.css
+  layout.tsx
+  page.tsx               # Home: Navigation + Hero + Features + ContactSection + Footer
+components/
+  Navigation.tsx         # Sticky nav with Apps dropdown (VeilChat, VeilPix)
+  sections/
+    Hero.tsx
+    Features.tsx
+    ContactSection.tsx   # Formspree submission
+    Footer.tsx
+  ui/
+    Button.tsx
+    Card.tsx
+    Container.tsx
+    GoogleIcon.tsx
+public/images/           # Hero1.png, Hero2.png, Hero3.png
+.github/workflows/deploy.yml
+.cpanel.yml              # Legacy, not used by current deploy flow
+next.config.js
+tailwind.config.js
+tsconfig.json
+eslint.config.js
+```
+
+There is **no** `/lib` or `/styles` directory — global CSS lives in `app/globals.css`.
+
+## Brand
+
+- **Tagline**: "Your AI, Your Keys, Your Control"
+- **Pillars**: Total Privacy (local models — Ollama, LM Studio), Limitless Flexibility (BYOK), Agentic Power
+- **Apps referenced in nav/footer**: VeilChat, VeilPix (hosted at `veilstudio.io/veilchat/` and `veilstudio.io/veilpix/`)
 
 ## Design System
 
-### Color Palette
-- **Background**: Very dark grey/off-black (#121212)
-- **Primary Gradient**: Bold, vibrant gradient for CTAs and highlights
-- **Secondary Gradient**: Warm orange-inspired gradient for secondary elements
-- **Text**: High contrast whites and greys for accessibility
+- **Background**: `#121212` (`dark-950` in Tailwind)
+- **Primary gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)` → `bg-gradient-primary`
+- **Orange gradient** (secondary CTAs): `linear-gradient(135deg, #ff8a80 0%, #ff5722 100%)` → `bg-gradient-orange`
+- **Custom utilities** in `app/globals.css` / Tailwind: `gradient-text`, `section-padding`, `btn-primary`, `btn-secondary`
+- Animations: `fade-in`, `slide-up`, `glow` (defined in `tailwind.config.js`)
+- Mobile-first, high-contrast, accessible semantic HTML
 
-### Typography Hierarchy
-- **Headlines**: Large, bold typography for impact
-- **Subheadlines**: Medium weight for supporting information
-- **Body**: Clean, readable text with proper line spacing
-- **Tags**: Small pill-shaped elements with gradient backgrounds
+## Commands
 
-## Component Structure
+Run from the repo root:
 
-### Core Components (`/components`)
-- **Navigation**: Sticky header with logo and navigation links
-- **Hero**: Two-column layout with tagline, headline, CTA, and hero image
-- **Features**: Three-column grid showcasing key differentiators
-- **Footer**: Multi-column layout with links and branding
+- `npm install` / `npm ci`
+- `npm run dev` — starts Next dev on an auto-assigned port (`--port 0`)
+- `npm run build` — produces static export in `out/`
+- `npm run start` — serves the production build
+- `npm run lint` — ESLint
+- `npm run type-check` — `tsc --noEmit`
+- `npm run kill-ports` / `npm run clean-dev` — free ports 3000–3003 and 55000–56000, then run dev
 
-### UI Components (`/components/ui`)
-- **Button**: Gradient CTA buttons with hover effects
-- **Card**: Feature cards with icons and descriptions
-- **Container**: Responsive container wrapper
+## Deployment / CI-CD
 
-## Key Features to Highlight
+- Workflow: `.github/workflows/deploy.yml`
+- Trigger: push to `main`
+- Steps: `actions/checkout@v3` → `actions/setup-node@v3` (Node 18, npm cache) → `npm ci` → `npm run build` → `SamKirkland/FTP-Deploy-Action@v4.3.4`
+- Uploads `./out/` to `/public_html/` on the cPanel host
+- **Preserves remote dirs**: excludes `veilchat/**` and `apps/**` so sibling sub-apps are not wiped
+- **Required GitHub Secrets**: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`
+- `.cpanel.yml` in the repo is legacy and is **not** part of the active deploy path — do not rely on it.
 
-1. **Total Privacy**: Local model support (Ollama, LM Studio)
-2. **Limitless Flexibility**: BYOK (Bring Your Own Key) approach
-3. **Agentic Power**: Advanced tool integration for complex tasks
+## Important Behaviors / Gotchas
 
-## Development Guidelines
+- `next.config.js` has `output: 'export'` + `images.unoptimized: true`. The build emits a fully static site; there is **no Node runtime in production**.
+- `app/api/contact/route.ts` (Resend integration) exists in the source tree but **does not run in the deployed site** because of the static export. The live contact form posts directly to Formspree from `components/sections/ContactSection.tsx`. Treat the API route as dead/standby code unless you’re migrating off static export.
+- Hardcoded external URLs live in `components/Navigation.tsx` (apps dropdown) and `components/sections/Footer.tsx` (social + product links). Update them there if brand links change.
+- Security content for `/security` is defined inline in `app/security/page.tsx`.
 
-- **Mobile-First**: Design and develop for mobile, then scale up
-- **Performance**: Optimize images, use Next.js Image component
-- **Accessibility**: Maintain high contrast ratios, proper semantic HTML
-- **Animations**: Subtle, tasteful animations (fade-in-on-scroll, hover effects)
-- **Code Quality**: Clean, well-commented, reusable components
+## Working Guidelines
 
-## File Structure
-```
-/app                    # Next.js App Router pages
-/components
-  /sections            # Page sections (Hero, Features, etc.)
-  /ui                  # Reusable UI components
-/lib                   # Utility functions and configurations
-/public
-  /images             # Static assets
-/styles                # Global styles and Tailwind config
-```
-
-## Brand Guidelines
-
-**Company**: VeilStudio
-**Tagline**: "Your AI, Your Keys, Your Control"
-**Mission**: Developing powerful, beautiful AI-integrated applications with privacy and security as core principles
-**Differentiators**: BYOK, Local-first, Powerful backend, Modular & open architecture
-
-## Development Commands
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-
-## Important Notes
-
-- Never compromise on privacy messaging
-- Maintain clean, minimalist aesthetic
-- Ensure all components are fully responsive
-- Follow Next.js App Router best practices
-- Use Tailwind utility classes effectively
-
-## Environment Configuration
-
-- Claude code is running in WSL on a windows machine
-- VeilStudio is running entirely in windows and not in WSL
-- Do not attempt to install any dependencies inside the bash terminal that are needed for the app to run
-- Provide instructions to run tests in PowerShell
+- Keep the design dark-themed, minimalist, and mobile-first.
+- Prefer extending existing `ui/` primitives (`Button`, `Card`, `Container`) over bespoke markup.
+- Never introduce server-only features (dynamic API routes, middleware, server actions) without first removing `output: 'export'` and updating the deploy target — static export on cPanel cannot run them.
+- Do not weaken privacy messaging or add analytics/tracking cookies.

@@ -1,96 +1,100 @@
 # GEMINI.md
 
-## Project Overview
+Agent guidance for the VeilStudio website repo. Same scope and conventions as `CLAUDE.md`.
 
-This project is the official website for VeilStudio, a company focused on developing powerful, beautiful AI-integrated applications with privacy and security as core principles. The website is a modern, responsive, single-page landing page with a dedicated security section.
+## Project
 
-**Tagline:** "Your AI, Your Keys, Your Control"
+Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io). Statically exported Next.js site deployed to cPanel.
 
-**Mission:** Developing powerful, beautiful AI-integrated applications with privacy and security as core principles.
+**Tagline**: "Your AI, Your Keys, Your Control"
+**Pillars**: Total Privacy (local models — Ollama, LM Studio), Limitless Flexibility (BYOK), Agentic Power.
+**Apps in nav/footer**: VeilChat, VeilPix — hosted at `veilstudio.io/veilchat/` and `veilstudio.io/veilpix/`.
 
-**Differentiators:**
+## Stack
 
-*   **Total Privacy:** Local model support (Ollama, LM Studio).
-*   **Limitless Flexibility:** BYOK (Bring Your Own Key) approach.
-*   **Agentic Power:** Advanced tool integration for complex tasks.
-*   **Modular & Open Architecture:** Flexible and extensible.
+- **Next.js** `^15.4.1` (App Router, `output: 'export'`) — `next.config.js`
+- **React** `^18.3.1`
+- **TypeScript** `^5.8.3` (strict, `@/*` path alias to repo root) — `tsconfig.json`
+- **Tailwind CSS** `^3.4.16` — `tailwind.config.js`
+- **ESLint** `^9.20.0` (flat config, `next/core-web-vitals`) — `eslint.config.js`
+- **Icons**: `lucide-react` + local `components/ui/GoogleIcon.tsx`
+- **Font**: Inter (Tailwind default sans)
+- **Contact form**: Formspree (`https://formspree.io/f/xdkdvdol`, POSTed directly from the client)
+- **Node**: `>=18` (CI uses Node 18)
 
-## Architecture & Technology Stack
+## Directory Layout
 
-*   **Framework:** Next.js 14+ (App Router)
-*   **Language:** TypeScript
-*   **Styling:** Tailwind CSS
-*   **Deployment:** Statically exported and deployed to cPanel via GitHub Actions.
-*   **Forms:** Contact form integrated with Formspree.
+```
+app/
+  api/contact/route.ts   # Resend-based handler (unused in prod — see note)
+  security/page.tsx      # /security page
+  globals.css
+  layout.tsx
+  page.tsx               # Home: Navigation + Hero + Features + ContactSection + Footer
+components/
+  Navigation.tsx         # Sticky nav with Apps dropdown (VeilChat, VeilPix)
+  sections/
+    Hero.tsx
+    Features.tsx
+    ContactSection.tsx   # Formspree submission
+    Footer.tsx
+  ui/
+    Button.tsx
+    Card.tsx
+    Container.tsx
+    GoogleIcon.tsx
+public/images/           # Hero1.png, Hero2.png, Hero3.png
+.github/workflows/deploy.yml
+.cpanel.yml              # Legacy, not used by current deploy flow
+next.config.js
+tailwind.config.js
+tsconfig.json
+eslint.config.js
+```
 
-The project uses the Next.js App Router, with a clear separation of concerns between pages, components, and sections. The application is configured for static site generation (`output: 'export'`), meaning the `npm run build` command produces a set of static HTML, CSS, and JavaScript files in the `out` directory. This is ideal for deployment on traditional web hosting like cPanel.
+There is **no** `/lib` or `/styles` directory — global CSS lives in `app/globals.css`.
 
 ## Design System
 
-*   **Theme:** Dark theme with gradient accents.
-*   **Color Palette:**
-    *   **Background:** Very dark grey/off-black (`#121212`)
-    *   **Primary Gradient:** Blue to purple (`linear-gradient(135deg, #667eea 0%, #764ba2 100%)`)
-    *   **Secondary Gradient:** Warm orange (`linear-gradient(135deg, #ff8a80 0%, #ff5722 100%)`)
-    *   **Text:** High contrast whites and greys for accessibility.
-*   **Typography:**
-    *   **Font:** Inter
-    *   **Headlines:** Large, bold typography for impact.
-    *   **Subheadlines:** Medium weight for supporting information.
-    *   **Body:** Clean, readable text with proper line spacing.
+- **Background**: `#121212` (`dark-950` in Tailwind)
+- **Primary gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)` → `bg-gradient-primary`
+- **Orange gradient** (secondary CTAs): `linear-gradient(135deg, #ff8a80 0%, #ff5722 100%)` → `bg-gradient-orange`
+- **Custom utilities**: `gradient-text`, `section-padding`, `btn-primary`, `btn-secondary` (Tailwind + `app/globals.css`)
+- **Animations**: `fade-in`, `slide-up`, `glow` (defined in `tailwind.config.js`)
+- Mobile-first, high-contrast, accessible semantic HTML.
 
-## Building and Running
+## Commands
 
-### Development
+Run from the repo root:
 
-To run the website in a local development environment:
+- `npm install` / `npm ci`
+- `npm run dev` — starts Next dev on an auto-assigned port (`--port 0`)
+- `npm run build` — produces static export in `out/`
+- `npm run start` — serves the production build
+- `npm run lint` — ESLint
+- `npm run type-check` — `tsc --noEmit`
+- `npm run kill-ports` / `npm run clean-dev` — free ports 3000–3003 and 55000–56000, then run dev
 
-1.  **Install dependencies:**
-    ```powershell
-    npm install
-    ```
-2.  **Run the development server:**
-    ```powershell
-    npm run dev
-    ```
-    This will start the development server on an available port, usually `http://localhost:3000`.
+## Deployment / CI-CD
 
-### Production Build
+- Workflow: `.github/workflows/deploy.yml`
+- Trigger: push to `main`
+- Steps: `actions/checkout@v3` → `actions/setup-node@v3` (Node 18, npm cache) → `npm ci` → `npm run build` → `SamKirkland/FTP-Deploy-Action@v4.3.4`
+- Uploads `./out/` to `/public_html/` on the cPanel host
+- **Preserves remote dirs**: excludes `veilchat/**` and `apps/**` so sibling sub-apps are not wiped
+- **Required GitHub Secrets**: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`
+- `.cpanel.yml` is legacy and **not** part of the active deploy path.
 
-To build the website for production:
+## Important Behaviors / Gotchas
 
-```powershell
-npm run build
-```
+- `next.config.js` sets `output: 'export'` + `images.unoptimized: true`. The build emits a fully static site; there is **no Node runtime in production**.
+- `app/api/contact/route.ts` (Resend integration) exists in the source tree but **does not run in the deployed site** because of the static export. The live contact form posts directly to Formspree from `components/sections/ContactSection.tsx`. Treat the API route as dead/standby code unless you're migrating off static export.
+- Hardcoded external URLs live in `components/Navigation.tsx` (apps dropdown) and `components/sections/Footer.tsx` (social + product links). Update them there if brand links change.
+- Security content for `/security` is defined inline in `app/security/page.tsx`.
 
-This command will generate the static website in the `out` directory. These are the files that are deployed to the web server.
+## Working Guidelines
 
-### Linting and Type-Checking
-
-To ensure code quality, you can run the following commands in PowerShell:
-
-*   **ESLint:**
-    ```powershell
-    npm run lint
-    ```
-*   **TypeScript:**
-    ```powershell
-    npm run type-check
-    ```
-
-## Development Conventions
-
-*   **Mobile-First:** Design and develop for mobile, then scale up.
-*   **Styling:** The project uses Tailwind CSS for all styling. Customizations, including the color palette, gradients, and animations, are defined in `tailwind.config.js`.
-*   **Components:** Reusable components are located in the `components` directory, with a further breakdown into `sections` (for larger page areas) and `ui` (for smaller, general-purpose components).
-*   **Static Site Generation:** The project is configured for static export. This means that server-side rendering (SSR) and API routes are not used in production. The contact form relies on a third-party service (Formspree) for this reason.
-*   **Deployment:** Deployment is automated via GitHub Actions. Pushing to the `main` branch triggers a workflow that builds the site and deploys it to a cPanel server using FTP. The workflow is defined in `.github/workflows/deploy.yml`.
-*   **Code Quality:** Write clean, well-commented, and reusable components.
-*   **Accessibility:** Maintain high contrast ratios and use proper semantic HTML.
-*   **Animations:** Use subtle, tasteful animations like fade-in-on-scroll and hover effects.
-
-## Environment Configuration
-
-*   The VeilStudio project is running entirely in Windows, not in WSL.
-*   Do not attempt to install any dependencies inside a bash terminal that are needed for the app to run.
-*   All commands should be run in PowerShell.
+- Keep the design dark-themed, minimalist, and mobile-first.
+- Prefer extending existing `ui/` primitives (`Button`, `Card`, `Container`) over bespoke markup.
+- Never introduce server-only features (dynamic API routes, middleware, server actions) without first removing `output: 'export'` and updating the deploy target — static export on cPanel cannot run them.
+- Do not weaken privacy messaging or add analytics/tracking cookies.

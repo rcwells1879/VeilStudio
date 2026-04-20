@@ -1,366 +1,159 @@
 # VeilStudio Website
 
-A modern, privacy-focused landing page for VeilStudio built with Next.js 14+ and Tailwind CSS. Features automated deployment, working contact form, and comprehensive security documentation.
+Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io).
+Statically exported Next.js site deployed to cPanel via GitHub Actions.
 
-## 🚀 Features
+**Tagline**: _Your AI, Your Keys, Your Control_
 
-- 🎨 **Modern Design**: Dark theme with bold gradients and clean typography
-- 📱 **Mobile-First**: Responsive design optimized for all screen sizes
-- ⚡ **Performance**: Built with Next.js App Router and static export
-- 🎭 **Animations**: Subtle, tasteful animations and hover effects
-- 🔒 **Privacy-Focused**: Emphasizes VeilStudio's privacy-first approach
-- 📧 **Working Contact Form**: Integrated with Formspree for reliable email delivery
-- 🛡️ **Security Page**: Comprehensive documentation of security features
-- 🚀 **Automated Deployment**: GitHub Actions with FTP deployment to cPanel
+## Stack
 
-## 🛠️ Tech Stack
+- Next.js `^15.4.1` (App Router) with static export (`output: 'export'`)
+- React `^18.3.1`, TypeScript `^5.8.3`
+- Tailwind CSS `^3.4.16` (Inter font, dark theme, custom gradients)
+- ESLint `^9.20.0` flat config (`next/core-web-vitals`)
+- Icons: `lucide-react`
+- Contact form: Formspree (client-side POST)
+- Node `>=18`
 
-- **Framework**: Next.js 14+ with App Router and Static Export
-- **Styling**: Tailwind CSS with custom gradients and animations
-- **Typography**: Inter font family for clean, modern aesthetics
-- **Icons**: Lucide React for consistent iconography
-- **Language**: TypeScript for type safety
-- **Forms**: Formspree integration for contact form submissions
-- **Deployment**: GitHub Actions with FTP Deploy Action
-- **Hosting**: cPanel hosting with Cloudflare proxy
+## Getting Started
 
-## 📋 Prerequisites
-
-- **Node.js**: Version 18.0.0 or higher
-- **npm**: Comes with Node.js
-- **Git**: For version control
-- **cPanel Hosting**: With FTP access
-- **Formspree Account**: For contact form functionality
-
-## 🚀 Getting Started
-
-### Local Development
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/rcwells1879/VeilStudio.git
-   cd VeilStudio
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Create environment file** (optional):
-   ```bash
-   # Create .env.local for local development
-   cp .env.local.example .env.local
-   ```
-
-4. **Run the development server**:
-   ```bash
-   npm run dev
-   ```
-
-5. **Open [http://localhost:3000](http://localhost:3000)** in your browser
-
-### Building for Production
-
-The project is configured for static export to work with cPanel hosting:
+Requires Node 18+.
 
 ```bash
-# Build the static site
-npm run build
-
-# The built files will be in the 'out' directory
-# These files are automatically deployed via GitHub Actions
+git clone https://github.com/rcwells1879/VeilStudio.git
+cd VeilStudio
+npm install
+npm run dev
 ```
 
-## 🔄 Deployment Workflow
+Dev server opens on an auto-assigned port (`next dev --port 0`).
 
-### Automated Deployment
+### Build
 
-The website uses **GitHub Actions** for automated deployment to cPanel hosting via FTP:
+```bash
+npm run build    # outputs static site to ./out
+```
 
-1. **Push to main branch** triggers automatic deployment
-2. **GitHub Actions** builds the Next.js site 
-3. **FTP Deploy Action** uploads files to your cPanel hosting
-4. **Live site** is updated at veilstudio.io
+### Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` | Dev server (auto-assigned port) |
+| `npm run build` | Static export to `out/` |
+| `npm run start` | Serve production build (unused in prod — we static-export) |
+| `npm run lint` | ESLint |
+| `npm run type-check` | `tsc --noEmit` |
+| `npm run kill-ports` | Free dev ports 3000–3003 and 55000–56000 |
+| `npm run clean-dev` | Kill ports then start dev |
+
+## Project Structure
+
+```
+app/
+  api/contact/route.ts   # Resend handler (present but inert — see Deployment note)
+  security/page.tsx      # /security page
+  globals.css
+  layout.tsx
+  page.tsx               # Home page composition
+components/
+  Navigation.tsx         # Sticky nav + Apps dropdown (VeilChat, VeilPix)
+  sections/              # Hero, Features, ContactSection, Footer
+  ui/                    # Button, Card, Container, GoogleIcon
+public/images/           # Hero1.png, Hero2.png, Hero3.png
+.github/workflows/deploy.yml
+next.config.js
+tailwind.config.js
+tsconfig.json
+eslint.config.js
+```
+
+## Design
+
+- **Background**: `#121212` (`dark-950`)
+- **Primary gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)` → `bg-gradient-primary`
+- **Secondary gradient (orange)**: `linear-gradient(135deg, #ff8a80 0%, #ff5722 100%)` → `bg-gradient-orange`
+- **Custom utilities**: `gradient-text`, `section-padding`, `btn-primary`, `btn-secondary`
+- **Animations**: `fade-in`, `slide-up`, `glow` (see `tailwind.config.js`)
+- Mobile-first, dark theme, high-contrast semantic HTML
+
+## Contact Form (Formspree)
+
+The live contact form POSTs directly to Formspree from the client in
+`components/sections/ContactSection.tsx`. To swap to a different form:
+
+1. Create a form at [formspree.io](https://formspree.io) and note the form ID.
+2. Update the endpoint in `components/sections/ContactSection.tsx`:
+   ```ts
+   const formspreeResponse = await fetch('https://formspree.io/f/YOUR_FORM_ID', { ... })
+   ```
+
+> ℹ️ `app/api/contact/route.ts` (Resend integration) exists in the tree but is
+> inert in production because the site is static-exported — cPanel has no Node
+> runtime. Keep or remove depending on your future plans.
+
+## Deployment (GitHub Actions → cPanel via FTP)
+
+Defined in `.github/workflows/deploy.yml`. Pushes to `main` trigger:
+
+1. `actions/checkout@v3`
+2. `actions/setup-node@v3` (Node 18, npm cache)
+3. `npm ci`
+4. `npm run build`
+5. `SamKirkland/FTP-Deploy-Action@v4.3.4` uploads `./out/` → `/public_html/`
+
+The FTP step excludes `veilchat/**` and `apps/**` on the server so sibling
+sub-apps at `veilstudio.io/veilchat/` and `veilstudio.io/apps/...` are not
+wiped on deploy.
 
 ### Required GitHub Secrets
 
-Configure these secrets in your GitHub repository (Settings → Secrets → Actions):
+Add these under **Settings → Secrets and variables → Actions**:
 
-- `FTP_SERVER`: Your cPanel server IP (e.g., `66.29.132.172`)
-- `FTP_USERNAME`: Your cPanel username (e.g., `veilcszl`)
-- `FTP_PASSWORD`: Your cPanel password
+- `FTP_SERVER` — cPanel server hostname or IP
+- `FTP_USERNAME` — cPanel FTP user
+- `FTP_PASSWORD` — cPanel FTP password
 
-### Deployment Process
+### Hosting Additional Apps at Subdirectories
 
-```bash
-# Make your changes locally
-git add .
-git commit -m "Your commit message"
-git push origin main
+To deploy a separate app at e.g. `veilstudio.io/veilchat/`:
 
-# GitHub Actions automatically:
-# 1. Installs dependencies (npm ci)
-# 2. Builds the site (npm run build)
-# 3. Deploys to /public_html/ via FTP
-# 4. Preserves subdirectories like /veilchat/
-```
+1. Upload that app's build into `/public_html/veilchat/` (manually or via its own workflow).
+2. It will remain untouched on subsequent site deploys thanks to the exclude list above.
 
-### Monitoring Deployments
+> `.cpanel.yml` is **legacy** and not used by the active deployment pipeline.
 
-- **GitHub Actions Tab**: View real-time deployment progress
-- **Deployment time**: ~15-20 seconds for typical changes
-- **Files deployed**: All contents of the `out` folder
-- **Protected directories**: Subdirectories like `/veilchat/` are preserved
+## Configuration Notes
 
-## 📧 Contact Form Integration
+`next.config.js`:
 
-### Formspree Setup
-
-The contact form uses **Formspree** for reliable email delivery:
-
-1. **Sign up** at [formspree.io](https://formspree.io) (free tier: 50 submissions/month)
-2. **Create a new form** and set delivery email to your address
-3. **Copy the form ID** (looks like `xdkdvdol`)
-4. **Update the form endpoint** in the code:
-
-```typescript
-// In components/sections/ContactSection.tsx
-const formspreeResponse = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
-```
-
-### Form Features
-
-- ✅ **Validation**: Client-side validation for required fields
-- ✅ **Success/Error States**: Visual feedback for form submissions
-- ✅ **Spam Protection**: Built-in Formspree spam filtering
-- ✅ **Mobile Responsive**: Optimized for all device sizes
-- ✅ **Accessibility**: Proper labels and keyboard navigation
-
-### Testing the Contact Form
-
-1. **Visit the live site** and scroll to the contact section
-2. **Fill out the form** with test data
-3. **Submit the form** and verify success message
-4. **Check your email** for the submission
-5. **Verify in Formspree dashboard** that submission was recorded
-
-## 🛡️ Security Page
-
-### Features Documented
-
-The security page (`/security`) covers VeilStudio's comprehensive security approach:
-
-- **Prompt Injection Protection**: Multi-layered defense against malicious prompts
-- **Code Injection Prevention**: Sandboxed execution environments
-- **Private Search**: Local search processing with zero logging
-- **Local Storage Encryption**: Military-grade encryption for sensitive data
-- **Offline Capability**: Complete functionality without internet connectivity
-- **Cookie-Free Experience**: Zero tracking cookies or persistent identifiers
-- **Input/Output Validation**: Industry-leading validation protocols
-- **Read-Only Tool Access**: Restricted permissions for local tool servers
-
-### Updating Security Content
-
-Security features are defined in `app/security/page.tsx`:
-
-```typescript
-const securityFeatures = [
-  {
-    icon: Shield,
-    title: 'Feature Name',
-    description: 'Feature description...',
-    details: ['Detail 1', 'Detail 2', 'Detail 3']
-  }
-  // Add new features here
-]
-```
-
-## 📁 Project Structure
-
-```
-├── app/                          # Next.js App Router
-│   ├── api/contact/             # Contact form API (deprecated)
-│   ├── security/                # Security page
-│   ├── globals.css              # Global styles and Tailwind
-│   ├── layout.tsx               # Root layout component
-│   └── page.tsx                 # Home page
-├── components/                   # React components
-│   ├── sections/                # Page sections
-│   │   ├── ContactSection.tsx   # Contact form with Formspree
-│   │   ├── Features.tsx         # Feature grid (links to security)
-│   │   ├── Footer.tsx           # Footer with links
-│   │   └── Hero.tsx             # Hero section with image
-│   ├── ui/                      # Reusable UI components
-│   │   ├── Button.tsx           # Gradient buttons
-│   │   ├── Card.tsx            # Feature cards
-│   │   └── Container.tsx        # Responsive containers
-│   └── Navigation.tsx           # Main navigation
-├── .github/workflows/           # GitHub Actions
-│   └── deploy.yml              # Automated FTP deployment
-├── public/                      # Static assets
-│   └── images/                 # Hero images and assets
-├── .cpanel.yml                 # cPanel deployment config (unused)
-├── .env.local                  # Environment variables (local)
-├── next.config.js              # Next.js configuration
-├── tailwind.config.js          # Tailwind CSS configuration
-└── README.md                   # This file
-```
-
-## 🎨 Styling and Theming
-
-### Color Palette
-
-- **Background**: Very dark grey/off-black (`#121212`)
-- **Primary Gradient**: Blue to purple (`linear-gradient(135deg, #667eea 0%, #764ba2 100%)`)
-- **Secondary Gradient**: Warm orange (`linear-gradient(135deg, #ff8a80 0%, #ff5722 100%)`)
-- **Text**: High contrast whites and greys for accessibility
-
-### Custom CSS Classes
-
-```css
-.btn-primary          # Primary gradient button
-.btn-secondary        # Secondary gradient button  
-.gradient-text        # Gradient text effect
-.section-padding      # Consistent section spacing
-.container-custom     # Responsive container
-```
-
-### Responsive Design
-
-- **Mobile-first approach** with Tailwind breakpoints
-- **Flexible grid layouts** that adapt to screen size
-- **Touch-friendly** interactive elements
-- **Optimized images** with Next.js Image component
-
-## 🧪 Development Commands
-
-```bash
-# Development
-npm run dev              # Start development server (port 0 for auto-assignment)
-npm run build           # Build for production (creates 'out' folder)
-npm run start           # Start production server (not used with static export)
-
-# Quality Assurance  
-npm run lint            # Run ESLint for code quality
-npm run type-check      # Run TypeScript compiler checks
-
-# Utility
-npm run kill-ports      # Kill common development ports
-npm run clean-dev       # Kill ports and start development server
-```
-
-## 🔧 Configuration Files
-
-### next.config.js
-
-Configured for static export to work with cPanel hosting:
-
-```javascript
+```js
 const nextConfig = {
-  output: 'export',           // Generate static files
-  trailingSlash: true,        // Ensure proper routing
-  images: {
-    unoptimized: true,        # Disable image optimization for static export
-  },
+  output: 'export',      // generates static files in out/
+  trailingSlash: true,   // required for cPanel-style static hosting
+  images: { unoptimized: true, domains: [] },
 }
 ```
 
-### tailwind.config.js
+Because of `output: 'export'`:
 
-Extended with custom colors, gradients, and animations for VeilStudio branding.
+- API routes / middleware / server actions **do not run** in production.
+- All pages are fully pre-rendered at build time.
+- Next.js image optimization is disabled.
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### Common Build Issues
+- **FTP timeout on deploy**: verify `FTP_SERVER` (try the IP), credentials, and that your host permits FTP from GitHub's IP range.
+- **Changes not live**: hard-refresh the browser; clear Cloudflare cache if applicable.
+- **Form submissions failing**: check the Formspree dashboard; verify the form ID in `ContactSection.tsx` matches.
+- **ESLint "unescaped entities" errors**: use `&apos;` or swap quote style in JSX.
 
-**Problem**: ESLint errors about unescaped entities
-```bash
-Error: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`
-```
-**Solution**: Replace apostrophes with `&apos;` or use double quotes instead of single quotes in JSX.
+## Resources
 
-**Problem**: API routes not working in production
-```bash
-POST /api/contact 404 (Not Found)
-```
-**Solution**: API routes don't work with static export. Use Formspree or external service instead.
+- Next.js: <https://nextjs.org/docs>
+- Tailwind CSS: <https://tailwindcss.com/docs>
+- Formspree: <https://formspree.io/docs>
+- FTP Deploy Action: <https://github.com/SamKirkland/FTP-Deploy-Action>
 
-### Deployment Issues
+## License
 
-**Problem**: FTP connection timeout
-```bash
-Error: connect ETIMEDOUT
-```
-**Solution**: 
-- Check FTP server address (use IP instead of domain)
-- Verify FTP credentials in GitHub secrets
-- Ensure hosting provider supports FTP connections
-
-**Problem**: Files not updating after deployment
-```bash
-Deployment successful but changes not visible
-```
-**Solution**:
-- Hard refresh browser (Ctrl+Shift+R)
-- Check if Cloudflare cache needs clearing
-- Verify deployment uploaded to correct directory
-
-### Contact Form Issues
-
-**Problem**: Form submissions not working
-```bash
-Failed to send message
-```
-**Solution**:
-- Verify Formspree form ID in `ContactSection.tsx`
-- Check Formspree dashboard for form status
-- Ensure email address is verified in Formspree
-
-**Problem**: Success message showing HTML entities
-```bash
-Message sent successfully! We&apos;ll get back to you soon.
-```
-**Solution**: Use double quotes instead of `&apos;` in success message strings.
-
-## 🚢 Additional Deployment Options
-
-### Subdirectory Protection
-
-The deployment workflow protects subdirectories for additional apps:
-
-```yaml
-exclude-glob-from-server: |
-  /public_html/veilchat/**
-  /public_html/apps/**
-```
-
-### Setting Up Additional Apps
-
-1. **Create subdirectory** in `/public_html/` (e.g., `/veilchat/`)
-2. **Deploy app separately** via FTP or additional GitHub Actions
-3. **Access app** at `veilstudio.io/veilchat/`
-4. **Protected from overwrites** by main site deployments
-
-## 📞 Support
-
-### Getting Help
-
-- **GitHub Issues**: [Create an issue](https://github.com/rcwells1879/VeilStudio/issues) for bugs or feature requests
-- **Formspree Support**: [Formspree Help Center](https://help.formspree.io/) for form-related issues
-- **Hosting Support**: Contact your cPanel hosting provider for server issues
-
-### Useful Resources
-
-- **Next.js Documentation**: [nextjs.org/docs](https://nextjs.org/docs)
-- **Tailwind CSS**: [tailwindcss.com/docs](https://tailwindcss.com/docs)
-- **GitHub Actions**: [docs.github.com/actions](https://docs.github.com/en/actions)
-- **Formspree Documentation**: [formspree.io/docs](https://formspree.io/docs)
-
-## 📄 License
-
-This project is private and proprietary to VeilStudio. All rights reserved.
-
----
-
-**VeilStudio** - Your AI, Your Keys, Your Control
+Private and proprietary to VeilStudio. All rights reserved.
