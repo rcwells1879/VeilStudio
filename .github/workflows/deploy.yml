@@ -1,40 +1,90 @@
-name: Deploy to cPanel
+name: Deploy to Cloudflare Pages
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - veilpix-updated
+      - veilchat-updated
+
+concurrency:
+  group: cloudflare-pages-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build project
-      run: npm run build
-      
-    - name: Deploy to cPanel via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./out/
-        server-dir: /public_html/
-        exclude: |
-          **/.git*
-          **/.git*/**
-          **/node_modules/**
-          veilchat/**
-          apps/**
+      - name: Checkout VeilStudio
+        uses: actions/checkout@v4
+        with:
+          path: veilstudio
+
+      - name: Checkout VeilPix
+        uses: actions/checkout@v4
+        with:
+          repository: rcwells1879/veilpix
+          path: veilpix
+          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_repo == 'veilpix' && github.event.client_payload.source_sha || 'main' }}
+
+      - name: Checkout VeilChat
+        uses: actions/checkout@v4
+        with:
+          repository: rcwells1879/veil-chat
+          path: veilchat
+          ref: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_repo == 'veil-chat' && github.event.client_payload.source_sha || 'main' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install VeilStudio dependencies
+        working-directory: veilstudio
+        run: npm ci
+
+      - name: Build VeilStudio
+        working-directory: veilstudio
+        run: npm run build
+
+      - name: Install VeilPix dependencies
+        working-directory: veilpix
+        run: npm ci
+
+      - name: Build VeilPix
+        working-directory: veilpix
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_API_BASE_URL: https://api.veilstudio.io
+        run: npm run build
+
+      - name: Install VeilChat dependencies
+        working-directory: veilchat
+        run: npm ci
+
+      - name: Build VeilChat
+        working-directory: veilchat
+        run: npm run build
+
+      - name: Assemble Cloudflare Pages artifact
+        run: >
+          node veilstudio/scripts/assemble-cloudflare-pages.mjs
+          --studio veilstudio/out
+          --veilpix veilpix/dist
+          --veilchat veilchat/src
+          --out cloudflare-pages
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy cloudflare-pages --project-name=veilstudio --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
