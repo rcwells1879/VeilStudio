@@ -12,13 +12,13 @@ const features = [
   },
   {
     icon: Key,
-    title: 'Limitless Flexibility',
-    description: 'Plug in any API key you want. From OpenAI and Anthropic to custom backends, VeilStudio adapts to your workflow.',
+    title: 'Image and Video Creation',
+    description: 'Use VeilPix for AI photo editing, text-to-image, Wan 2.7 text-to-video, image-to-video, reference-driven video workflows, and planned Seedance 2.0 support.',
   },
   {
     icon: Zap,
-    title: 'Agentic Power',
-    description: 'Go beyond simple chat. Our apps leverage advanced tools for web research, data analysis, and complex task execution.',
+    title: 'Flexible AI Workflows',
+    description: 'Move from creative generation to AI chat, research, and task execution while keeping control of your models, keys, and data.',
   },
 ]
 

@@ -24,7 +24,7 @@ const appsDropdownItems = [
     name: 'VeilPix',
     href: 'https://veilstudio.io/veilpix/',
     color: 'text-teal-400 hover:text-teal-300',
-    description: 'Privacy-focused image tools'
+    description: 'AI image and video generation'
   },
 ]
 

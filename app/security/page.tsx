@@ -5,8 +5,11 @@ import Link from 'next/link'
 import { Shield, Lock, Eye, Database, Wifi, Cookie, CheckCircle, FileText, Server, UserCheck } from 'lucide-react'
 
 export const metadata = {
-  title: 'Security & Privacy - VeilStudio',
-  description: 'Learn about VeilStudio&apos;s comprehensive security measures, privacy protections, and safety protocols for AI applications.',
+  title: 'Security & Privacy - VeilStudio AI Apps',
+  description: 'Learn how VeilStudio protects data across VeilPix AI image and video generation, VeilChat, and other privacy-focused AI applications.',
+  alternates: {
+    canonical: '/security/',
+  },
 }
 
 const securityFeatures = [

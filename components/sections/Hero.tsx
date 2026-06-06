@@ -19,18 +19,18 @@ export default function Hero() {
           <div className="space-y-8 animate-fade-in">
             <div className="inline-flex">
               <span className="btn-secondary">
-                Privacy First
+                Private Creative AI
               </span>
             </div>
             
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-                Your AI, Your Keys,{' '}
+                AI Image, Video, and Chat Tools,{' '}
                 <span className="gradient-text">Your Control</span>
               </h1>
               
               <p className="text-lg md:text-xl text-gray-300 max-w-2xl">
-                VeilStudio delivers powerful AI applications that put you in charge of your data and your models, from local workstations to the cloud.
+                VeilStudio builds privacy-focused AI applications for image editing, text-to-image creation, video generation, and intelligent chat workflows.
               </p>
             </div>
             
@@ -48,7 +48,7 @@ export default function Hero() {
                   <div className="flex items-center gap-4 pt-4">
                     <Link href="https://veilstudio.io/veilpix/">
                       <Button size="lg" className="bg-gradient-to-br from-black to-teal-500 whitespace-nowrap">
-                        VeilPix
+                        VeilPix Image & Video
                       </Button>
                     </Link>
                     <Link href="https://veilstudio.io/veilchat/">

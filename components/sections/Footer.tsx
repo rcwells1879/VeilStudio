@@ -41,7 +41,7 @@ export default function Footer() {
                 <span className="gradient-text">Veil</span><span className="text-white">Studio</span>
               </Link>
               <p className="mt-4 text-gray-300 max-w-md">
-                Developing powerful, beautiful AI-integrated applications with privacy and security as core principles.
+                Developing privacy-focused AI applications for image editing, video generation, chat, and creative workflows.
               </p>
               <div className="flex space-x-6 mt-6">
                 {socialLinks.map((item) => (
