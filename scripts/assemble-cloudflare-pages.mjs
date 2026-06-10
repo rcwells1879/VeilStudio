@@ -40,7 +40,7 @@ const outputDir = readArg("--out");
 
 assertFile(path.join(studioDir, "index.html"), "VeilStudio build output");
 assertFile(path.join(veilpixDir, "index.html"), "VeilPix build output");
-assertFile(path.join(veilchatDir, "index.html"), "VeilChat static entry");
+assertFile(path.join(veilchatDir, "index.html"), "VeilChat build output");
 
 fs.rmSync(outputDir, { recursive: true, force: true });
 fs.mkdirSync(outputDir, { recursive: true });
