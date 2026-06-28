@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     siteName: 'VeilStudio',
     images: [
       {
-        url: '/images/Hero2.png',
-        width: 500,
-        height: 500,
+        url: '/images/morphic/hero-aether.png',
+        width: 1672,
+        height: 941,
         alt: 'VeilStudio private AI creative tools',
       },
     ],
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'VeilStudio - Private AI Image, Video, and Chat Tools',
     description: 'AI image editing, text-to-image, Wan 2.7 text-to-video, image-to-video, reference-to-video, and private AI chat tools.',
-    images: ['/images/Hero2.png'],
+    images: ['/images/morphic/hero-aether.png'],
   },
   robots: {
     index: true,
