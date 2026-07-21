@@ -38,3 +38,6 @@ next-env.d.ts
 
 # Local prototypes
 /prototypes/morphic-hero/
+
+# Generated scroll-world sources and QA scratch files
+/tmp/

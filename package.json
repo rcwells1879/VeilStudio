@@ -10,6 +10,9 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "scroll-world:generate": "node scripts/generate-scroll-world.mjs",
+    "scroll-world:process": "node scripts/process-scroll-world.mjs",
+    "scroll-world:preview": "node scripts/serve-scroll-world-preview.mjs",
     "kill-ports": "npx kill-port 3000,3001,3002,3003,55000-56000",
     "clean-dev": "npm run kill-ports && npm run dev"
   },
@@ -33,6 +36,8 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.20.0",
     "eslint-config-next": "^15.4.1",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
     "kill-port": "^2.0.1",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.16",

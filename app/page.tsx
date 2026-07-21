@@ -1,5 +1,6 @@
-import MorphicHome from '@/components/sections/MorphicHome'
+import ScrollWorldHome from '@/components/sections/ScrollWorldHome'
+import './scroll-world.css'
 
 export default function HomePage() {
-  return <MorphicHome />
+  return <ScrollWorldHome />
 }
