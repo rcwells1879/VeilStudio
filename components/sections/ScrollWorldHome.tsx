@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import Script from 'next/script'
+import type { CSSProperties } from 'react'
 
 type SiteLink = {
   name: string
@@ -111,8 +112,48 @@ export default function ScrollWorldHome() {
 
       <main id="scroll-world" className="scroll-world" aria-label="VeilStudio animated story">
         <div className="world-progress" aria-hidden="true"><span /></div>
-        <div className="world-stage" aria-hidden="true" />
-        <div className="world-copy" aria-live="polite" />
+        <div className="world-stage" aria-hidden="true">
+          <div
+            className="world-segment world-segment--scene world-segment--initial"
+            data-id="02-observatory-study"
+            style={{ '--object-position': '32% 48%' } as CSSProperties}
+          >
+            <picture>
+              <source
+                media="(max-width: 600px)"
+                srcSet="/media/scroll-world/posters/02-observatory-study-m.webp"
+              />
+              <img
+                src="/media/scroll-world/posters/02-observatory-study.webp"
+                alt=""
+                width="1280"
+                height="720"
+                decoding="async"
+                fetchPriority="high"
+                draggable="false"
+              />
+            </picture>
+          </div>
+        </div>
+        <div className="world-copy" aria-live="polite">
+          <article
+            className="scene-copy scene-copy--right scene-copy--initial is-interactive"
+            data-scene-copy="0"
+            style={{ '--scene-accent': '#9fd5c2' } as CSSProperties}
+            aria-hidden="false"
+          >
+            <h1>VeilStudio</h1>
+            <p className="scene-copy__tagline">Imagine. Build. Transform.</p>
+            <p className="scene-copy__body">
+              Private creative AI for image editing, video generation, and intelligent chat
+              workflows. Build with the models and keys you choose.
+            </p>
+            <div className="scene-copy__actions">
+              <a href="https://veilstudio.io/veilpix/">VeilPix Image &amp; Video</a>
+              <a href="https://veilstudio.io/veilchat/">VeilChat beta</a>
+            </div>
+          </article>
+        </div>
         <nav className="world-route" aria-label="Jump to a scene" />
         <div className="world-hint" aria-hidden="true">
           <span>Scroll to wander</span>
@@ -177,7 +218,7 @@ export default function ScrollWorldHome() {
         <div className="world-track" aria-hidden="true" />
 
         <section className="seo-copy" data-scroll-world-seo>
-          <h1>VeilStudio private AI image, video, and chat tools</h1>
+          <h2>VeilStudio private AI image, video, and chat tools</h2>
           <p>Imagine. Build. Transform.</p>
           <p>
             VeilStudio develops privacy-focused creative AI for image editing, video generation,
@@ -217,7 +258,7 @@ export default function ScrollWorldHome() {
         </section>
       </main>
 
-      <Script src="/scroll-world/scroll-world.js?v=20260720-1" strategy="afterInteractive" />
+      <Script src="/scroll-world/scroll-world.js?v=20260721-1" strategy="afterInteractive" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}

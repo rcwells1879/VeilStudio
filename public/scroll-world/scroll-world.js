@@ -168,17 +168,18 @@ function finaleStillUrl() {
 }
 
 function makeSegment(config) {
-  const element = document.createElement('div')
-  element.className = `world-segment world-segment--${config.kind}`
+  const existingElement = stage.querySelector(`[data-id="${config.id}"]`)
+  const element = existingElement || document.createElement('div')
+  element.classList.add('world-segment', `world-segment--${config.kind}`)
   element.dataset.id = config.id
   element.style.setProperty('--object-position', config.objectPosition)
 
-  const image = document.createElement('img')
+  const image = element.querySelector('img') || document.createElement('img')
   image.alt = ''
   image.decoding = 'async'
   image.draggable = false
-  element.appendChild(image)
-  stage.appendChild(element)
+  if (!image.parentElement) element.appendChild(image)
+  if (!existingElement) stage.appendChild(element)
 
   return {
     ...config,
@@ -197,8 +198,15 @@ function makeSegment(config) {
 }
 
 function makeCopy(scene, index) {
+  const existingArticle = copyLayer.querySelector(`[data-scene-copy="${index}"]`)
+  if (existingArticle) {
+    existingArticle.style.setProperty('--scene-accent', scene.accent)
+    return existingArticle
+  }
+
   const article = document.createElement('article')
   article.className = `scene-copy scene-copy--${scene.side}`
+  article.dataset.sceneCopy = String(index)
   article.style.setProperty('--scene-accent', scene.accent)
   const heading = index === 0 ? 'h1' : 'h2'
   article.innerHTML = `
