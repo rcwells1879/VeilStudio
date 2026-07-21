@@ -1,5 +1,6 @@
 const MEDIA = '/media/scroll-world'
 const CONTACT_ENDPOINT = 'https://formspree.io/f/xdkdvdol'
+const FINALE_MOBILE_VERSION = '20260721-1'
 
 const scenes = [
   {
@@ -161,11 +162,15 @@ window.addEventListener('pagehide', releaseVideos, { once: true })
 
 function mediaUrl(id, type) {
   const mobile = phoneClass ? '-m' : ''
-  return `${MEDIA}/${type}/${id}${mobile}.${type === 'video' ? 'mp4' : 'webp'}`
+  const url = `${MEDIA}/${type}/${id}${mobile}.${type === 'video' ? 'mp4' : 'webp'}`
+  return phoneClass && id === '05-finale-contact'
+    ? `${url}?v=${FINALE_MOBILE_VERSION}`
+    : url
 }
 
 function finaleStillUrl() {
-  return `${MEDIA}/posters/05-finale-contact-final${phoneClass ? '-m' : ''}.webp`
+  const url = `${MEDIA}/posters/05-finale-contact-final${phoneClass ? '-m' : ''}.webp`
+  return phoneClass ? `${url}?v=${FINALE_MOBILE_VERSION}` : url
 }
 
 function makeSegment(config) {
