@@ -258,7 +258,7 @@ export default function ScrollWorldHome() {
         </section>
       </main>
 
-      <Script src="/scroll-world/scroll-world.js?v=20260721-1" strategy="afterInteractive" />
+      <Script src="/scroll-world/scroll-world.js?v=20260721-2" strategy="afterInteractive" />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}

@@ -119,7 +119,8 @@ const finaleSegment = makeSegment({
   kind: 'finale',
   sceneIndex: scenes.length - 1,
   weight: finaleWeight,
-  objectPosition: '50% 50%',
+  // Match the badger scene's crop so the portrait handoff does not jump sideways.
+  objectPosition: scenes[scenes.length - 1].objectPosition,
   still: finaleStillUrl(),
 })
 segments.push(finaleSegment)
@@ -555,7 +556,10 @@ function animateScroll() {
 }
 
 function onResize() {
-  if (coarsePointer && window.innerWidth === laidOutWidth) return
+  const widthChanged = Math.abs(window.innerWidth - laidOutWidth) > 2
+  // Chrome's mobile toolbar changes viewport height while scrolling. Rebuilding the
+  // scene bands for that height-only resize makes the pinned world appear to scroll.
+  if ((coarsePointer || compactViewport.matches) && !widthChanged) return
   layout()
 }
 
