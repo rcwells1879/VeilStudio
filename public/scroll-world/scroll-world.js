@@ -1,3 +1,4 @@
+function initScrollWorld() {
 const MEDIA = '/media/scroll-world'
 const CONTACT_ENDPOINT = 'https://formspree.io/f/xdkdvdol'
 const FINALE_MOBILE_VERSION = '20260721-1'
@@ -66,6 +67,8 @@ let renderedScrollY = targetScrollY
 let scrollAnimationFrame = 0
 
 const root = document.querySelector('#scroll-world')
+if (!root || root.dataset.scrollWorldMounted === 'true') return
+
 const stage = root.querySelector('.world-stage')
 const copyLayer = root.querySelector('.world-copy')
 const route = root.querySelector('.world-route')
@@ -82,6 +85,12 @@ const contactStatus = finale.querySelector('[data-contact-status]')
 const seoCopy = root.querySelector('[data-scroll-world-seo]')
 const siteLinksToggle = document.querySelector('[data-links-toggle]')
 const siteLinksPanel = document.querySelector('[data-links-panel]')
+
+if (!stage || !copyLayer || !route || !track || !progress || !hint || !header
+  || !progressBar || !finale || !finaleContact || !finaleFooter || !contactForm
+  || !contactStatus || !seoCopy) return
+
+root.dataset.scrollWorldMounted = 'true'
 
 const segmentWeight = compactViewport.matches ? 2.15 : 1.85
 const connectorWeight = compactViewport.matches ? 1.15 : 0.9
@@ -151,7 +160,8 @@ const enableMedia = () => {
   render()
 }
 
-window.setTimeout(enableMedia, 1200)
+if (targetScrollY > 0) enableMedia()
+else window.setTimeout(enableMedia, 350)
 window.addEventListener('wheel', enableMedia, { once: true, passive: true })
 window.addEventListener('pointerdown', onFirstGesture, { once: true, passive: true })
 window.addEventListener('touchstart', onFirstGesture, { once: true, passive: true })
@@ -679,4 +689,11 @@ function escapeHtml(value) {
     '"': '&quot;',
     "'": '&#039;',
   })[character])
+}
+}
+
+if (document.readyState === 'complete') {
+  initScrollWorld()
+} else {
+  window.addEventListener('load', initScrollWorld, { once: true })
 }

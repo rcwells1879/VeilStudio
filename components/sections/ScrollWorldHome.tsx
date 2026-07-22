@@ -1,6 +1,5 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import Script from 'next/script'
 import type { CSSProperties } from 'react'
 
 type SiteLink = {
@@ -217,7 +216,7 @@ export default function ScrollWorldHome() {
 
         <div className="world-track" aria-hidden="true" />
 
-        <section className="seo-copy" data-scroll-world-seo>
+        <section className="seo-copy" data-scroll-world-seo hidden>
           <h2>VeilStudio private AI image, video, and chat tools</h2>
           <p>Imagine. Build. Transform.</p>
           <p>
@@ -258,7 +257,7 @@ export default function ScrollWorldHome() {
         </section>
       </main>
 
-      <Script src="/scroll-world/scroll-world.js?v=20260721-3" strategy="afterInteractive" />
+      <script src="/scroll-world/scroll-world.js?v=20260721-4" async />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}

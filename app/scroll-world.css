@@ -716,10 +716,12 @@ a {
   position: relative;
   z-index: -1;
   width: 1px;
+  height: 1080vh;
   pointer-events: none;
 }
 
 .seo-copy {
+  display: none;
   position: relative;
   z-index: 2;
   width: min(760px, calc(100% - 40px));
@@ -743,6 +745,10 @@ a {
 @media (max-width: 900px) {
   :root {
     --copy-safe: 18px;
+  }
+
+  .world-track {
+    height: 1394vh;
   }
 
   .preview-header {
