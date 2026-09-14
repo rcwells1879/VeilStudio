@@ -78,10 +78,10 @@ const hint = root.querySelector('.world-hint')
 const header = document.querySelector('.preview-header')
 const progressBar = root.querySelector('.world-progress')
 const finale = root.querySelector('.world-finale')
-const finaleContact = finale.querySelector('.finale-contact')
-const finaleFooter = finale.querySelector('[data-finale-footer]')
-const contactForm = finale.querySelector('[data-contact-form]')
-const contactStatus = finale.querySelector('[data-contact-status]')
+const finaleContact = finale?.querySelector('.finale-contact')
+const finaleFooter = finale?.querySelector('[data-finale-footer]')
+const contactForm = finale?.querySelector('[data-contact-form]')
+const contactStatus = finale?.querySelector('[data-contact-status]')
 const seoCopy = root.querySelector('[data-scroll-world-seo]')
 const siteLinksToggle = document.querySelector('[data-links-toggle]')
 const siteLinksPanel = document.querySelector('[data-links-panel]')
@@ -163,12 +163,14 @@ const enableMedia = () => {
 if (targetScrollY > 0) enableMedia()
 else window.setTimeout(enableMedia, 350)
 window.addEventListener('wheel', enableMedia, { once: true, passive: true })
-window.addEventListener('pointerdown', onFirstGesture, { once: true, passive: true })
-window.addEventListener('touchstart', onFirstGesture, { once: true, passive: true })
+window.addEventListener('touchstart', enableMedia, { once: true, passive: true })
+window.addEventListener('touchend', onMediaGesture, { passive: true })
+window.addEventListener('click', onMediaGesture)
+window.addEventListener('keydown', onMediaGesture)
 window.addEventListener('scroll', onScroll, { passive: true })
 window.addEventListener('resize', onResize)
 window.addEventListener('orientationchange', layout)
-window.addEventListener('pagehide', releaseVideos, { once: true })
+window.addEventListener('pagehide', releaseVideos)
 
 function mediaUrl(id, type) {
   const mobile = phoneClass ? '-m' : ''
@@ -207,6 +209,9 @@ function makeSegment(config) {
     blobUrl: null,
     loading: false,
     ready: false,
+    priming: false,
+    primed: false,
+    primeNeedsGesture: false,
     visible: false,
     current: 0,
     target: 0,
@@ -352,15 +357,8 @@ function showSegment(segment, opacity, zIndex) {
 
 function snapSegmentTime(segment, progress) {
   if (!segment) return
-  segment.current = progress
   segment.target = progress
-  const video = segment.video
-  if (!video || !segment.ready) return
-  try {
-    video.currentTime = clamp(progress, 0, 0.999) * (video.duration || 1)
-  } catch {
-    // The poster remains visible until the media element becomes seekable.
-  }
+  seekVideo(segment)
 }
 
 function renderCopy(segment) {
@@ -374,25 +372,22 @@ function renderCopy(segment) {
   if (segment.kind === 'finale') return
 
   if (segment.kind === 'connector') {
-    const from = segment.sceneIndex
-    const to = from + 1
-    const outgoing = smooth(clamp((0.58 - segment.target) / 0.42))
-    const incoming = smooth(clamp((segment.target - 0.42) / 0.42))
-    setCopy(copies[from], outgoing)
-    setCopy(copies[to], incoming)
+    const to = segment.sceneIndex + 1
+    const incoming = smooth(clamp((segment.target - 0.72) / 0.26))
+    setCopy(copies[to], incoming, (1 - incoming) * 30)
     return
   }
 
-  const isLastScene = segment.sceneIndex === scenes.length - 1
-  const outroOpacity = isLastScene
-    ? smooth(clamp((1 - segment.target) / 0.18))
-    : 1
-  setCopy(copies[segment.sceneIndex], outroOpacity)
+  const exitProgress = smooth(clamp((segment.target - 0.26) / 0.18))
+  setCopy(copies[segment.sceneIndex], 1 - exitProgress, exitProgress * -44)
 }
 
-function setCopy(copy, opacity) {
+function setCopy(copy, opacity, offsetY = 0) {
+  const renderedOffsetY = reduceMotion ? 0 : offsetY
   copy.style.opacity = String(opacity)
-  copy.style.transform = compactViewport.matches ? 'none' : 'translateY(-50%)'
+  copy.style.transform = compactViewport.matches
+    ? `translate3d(0, ${renderedOffsetY.toFixed(2)}px, 0)`
+    : `translateY(-50%) translate3d(0, ${renderedOffsetY.toFixed(2)}px, 0)`
   const interactive = opacity > 0.62
   copy.classList.toggle('is-interactive', interactive)
   copy.style.pointerEvents = interactive ? 'auto' : 'none'
@@ -464,68 +459,102 @@ async function loadClip(segment) {
 
     const video = document.createElement('video')
     segment.blobUrl = URL.createObjectURL(blob)
-    video.src = segment.blobUrl
     video.muted = true
+    video.defaultMuted = true
     video.playsInline = true
     video.preload = 'auto'
     video.setAttribute('muted', '')
     video.setAttribute('playsinline', '')
+    video.setAttribute('webkit-playsinline', '')
     video.setAttribute('aria-hidden', 'true')
     video.addEventListener('loadedmetadata', () => {
       segment.ready = true
-      if (userReady) primeVideo(video)
       render()
     })
     video.addEventListener('seeked', () => {
-      segment.element.classList.add('has-frame')
-    }, { once: true })
+      revealVideoFrame(segment)
+    })
     video.addEventListener('loadeddata', () => {
-      if (userReady) primeVideo(video)
+      if (userReady) primeVideo(segment)
     })
     segment.video = video
     segment.element.appendChild(video)
+    video.src = segment.blobUrl
   } catch {
     segment.loading = false
   }
 }
 
 function seekLoop() {
-  const mobileBehavior = coarsePointer || compactViewport.matches
-  const epsilon = mobileBehavior ? 0.025 : 0.009
   for (const segment of segments) {
-    const video = segment.video
-    if (!video || !segment.ready) continue
-    const atEndpoint = segment.target <= 0.015 || segment.target >= 0.985
-    if (video.seeking && !atEndpoint) continue
     if (!segment.visible && Math.abs(segment.current - segment.target) < 0.002) continue
-    segment.current = segment.target
-    const targetTime = clamp(segment.current, 0, 0.999) * (video.duration || 1)
-    if (Math.abs(video.currentTime - targetTime) > epsilon) {
-      try {
-        video.currentTime = targetTime
-      } catch {
-        // A still remains visible until the media element becomes seekable.
-      }
-    }
+    seekVideo(segment)
   }
   requestAnimationFrame(seekLoop)
 }
 
-function onFirstGesture() {
-  userReady = true
-  enableMedia()
-  segments.forEach((segment) => primeVideo(segment.video))
+function seekVideo(segment) {
+  const video = segment.video
+  // A second seek (including at a seam) can cancel the decoder's pending frame.
+  // Keep the latest scroll target and apply it when the decoder is free.
+  if (!video || !segment.ready || segment.priming || video.seeking) return
+  const epsilon = coarsePointer || compactViewport.matches ? 0.025 : 0.009
+  const targetTime = clamp(segment.target, 0, 0.999) * (video.duration || 1)
+  try {
+    if (Math.abs(video.currentTime - targetTime) > epsilon) video.currentTime = targetTime
+    segment.current = segment.target
+  } catch {
+    // Leave the target pending until the media element becomes seekable.
+  }
 }
 
-function primeVideo(video) {
-  if (!video || !(coarsePointer || compactViewport.matches)) return
+function revealVideoFrame(segment) {
+  const video = segment.video
+  if (!video || video.seeking || video.readyState < 2 || segment.priming) return
+  segment.element.classList.add('has-frame')
+}
+
+function onMediaGesture() {
+  userReady = true
+  enableMedia()
+  // touchend/click can satisfy iPhone playback permission. Keep listening so a
+  // clip fetched after the first gesture can retry; primed clips are skipped.
+  segments.forEach((segment) => {
+    if (segment.visible) primeVideo(segment, true)
+  })
+}
+
+function primeVideo(segment, fromGesture = false) {
+  const video = segment.video
+  if (!video || stillsOnly || !(coarsePointer || compactViewport.matches)) return
+  if (segment.priming || segment.primed || (segment.primeNeedsGesture && !fromGesture)) return
+
+  segment.priming = true
+  const finish = () => {
+    if (segment.video !== video) return
+    video.pause()
+    segment.priming = false
+    segment.primed = true
+    segment.primeNeedsGesture = false
+    seekVideo(segment)
+    revealVideoFrame(segment)
+  }
+  const failed = (error) => {
+    if (segment.video !== video) return
+    segment.priming = false
+    segment.primeNeedsGesture = true
+    // AbortError means playback was interrupted, not that animation is blocked.
+    // Async loading also lacks user activation. Only a policy rejection during
+    // a real gesture is a reason to use the stills fallback.
+    if (error?.name === 'NotAllowedError' && fromGesture) enterStillsMode()
+  }
+
   try {
     const play = video.play()
-    if (play?.then) {
-      play.then(() => video.pause()).catch(() => enterStillsMode())
-    }
-  } catch {
-    // Some desktop browsers throw during speculative priming; normal seeking still works.
+    if (play?.then) play.then(finish, failed)
+    else finish()
+  } catch (error) {
+    failed(error)
   }
 }
 
@@ -578,7 +607,9 @@ function onResize() {
   layout()
 }
 
-function releaseVideos() {
+function releaseVideos(event) {
+  // A back/forward-cache entry keeps these same video elements alive on return.
+  if (event.persisted) return
   segments.forEach((segment) => {
     if (segment.blobUrl) URL.revokeObjectURL(segment.blobUrl)
   })
@@ -692,8 +723,12 @@ function escapeHtml(value) {
 }
 }
 
-if (document.readyState === 'complete') {
-  initScrollWorld()
+// The scroll controller only needs the DOM. Waiting for window.load also waits
+// for images and other resources, leaving a scrollable but frozen first scene
+// when a mobile request stalls. Async scripts may arrive after DOMContentLoaded.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initScrollWorld, { once: true })
 } else {
-  window.addEventListener('load', initScrollWorld, { once: true })
+  initScrollWorld()
 }
+window.addEventListener('pageshow', initScrollWorld)

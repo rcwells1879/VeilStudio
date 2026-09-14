@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test:scroll-world": "node --test scripts/test-scroll-world-runtime.mjs",
     "scroll-world:generate": "node scripts/generate-scroll-world.mjs",
     "scroll-world:process": "node scripts/process-scroll-world.mjs",
     "scroll-world:preview": "node scripts/serve-scroll-world-preview.mjs",
