@@ -167,6 +167,68 @@ test('back/forward cache preserves video URLs until the page is discarded', () =
 })
 
 const bootstrap = source.slice(source.lastIndexOf("if (document.readyState"))
+
+function navigationHarness(hash = '#contact') {
+  const target = () => ({ offsetTop: 600, attributes: {}, setAttribute(k, v) { this.attributes[k] = v }, focus(options) { this.focusOptions = options } })
+  const context = {
+    window: { location: { hash }, scrollY: 0, scrollTo({ top }) { this.scrollY = top } },
+    totalPixels: 8000, scrollAnimationFrame: 17, targetScrollY: 0, renderedScrollY: 0,
+    finale: { scrollTop: 300 }, finaleContact: target(), finaleFooter: target(),
+    cancelAnimationFrame(id) { context.cancelled = id },
+    render(y) { context.lastRender = y },
+  }
+  vm.createContext(context)
+  vm.runInContext(runtimeFunction('onHashChange'), context)
+  return context
+}
+
+test('cold and repeated Contact anchors reveal the finale and reset its inner scroll', () => {
+  const runtime = navigationHarness()
+  runtime.onHashChange()
+  assert.equal(runtime.window.scrollY, 8000)
+  assert.equal(runtime.lastRender, 8000)
+  assert.equal(runtime.cancelled, 17)
+  assert.equal(runtime.finale.scrollTop, 0)
+  assert.equal(runtime.finaleContact.focusOptions.preventScroll, true)
+  runtime.window.scrollY = 0
+  runtime.finale.scrollTop = 600
+  runtime.onHashChange()
+  assert.equal(runtime.window.scrollY, 8000)
+  assert.equal(runtime.finale.scrollTop, 0)
+})
+
+test('About positions the independently scrolling footer; Home returns to the opening', () => {
+  const runtime = navigationHarness('#about')
+  runtime.onHashChange()
+  assert.equal(runtime.finale.scrollTop, 600)
+  assert.equal(runtime.finaleFooter.focusOptions.preventScroll, true)
+  runtime.window.location.hash = '#home'
+  runtime.onHashChange()
+  assert.equal(runtime.lastRender, 0)
+  runtime.window.location.hash = '#unknown'
+  runtime.window.scrollY = 100
+  runtime.onHashChange()
+  assert.equal(runtime.window.scrollY, 100)
+})
+
+test('resize preserves the visible finale even when the browser already clamped scrollY', () => {
+  const runtime = navigationHarness()
+  runtime.window.scrollY = 7200
+  runtime.window.innerHeight = 600
+  runtime.window.innerWidth = 1000
+  runtime.renderedScrollY = 8000
+  runtime.finale.getAttribute = () => 'false'
+  runtime.compactViewport = { matches: false }
+  runtime.segments = [{ weight: 2 }, { weight: 2 }]
+  runtime.track = { style: {} }
+  vm.runInContext(runtimeFunction('clamp'), runtime)
+  vm.runInContext(runtimeFunction('layout'), runtime)
+  runtime.layout()
+  assert.equal(runtime.window.scrollY, 2400)
+  assert.equal(runtime.lastRender, 2400)
+  assert.equal(runtime.track.style.height, '3000px')
+})
+
 for (const readyState of ['loading', 'interactive', 'complete']) {
   test(`controller starts before window.load when document is ${readyState}`, () => {
     const documentEvents = new Map()

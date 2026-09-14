@@ -5,20 +5,17 @@ import GoogleIcon from '../ui/GoogleIcon'
 
 const footerLinks = {
   product: [
-    { name: 'Features', href: '#features' },
-    { name: 'Apps', href: 'https://veilstudio.io/veilchat/index.html' },
-    { name: 'Pricing', href: '#pricing' },
-    { name: 'Documentation', href: '#docs' },
+    { name: 'VeilPix', href: 'https://veilstudio.io/veilpix/' },
+    { name: 'VeilChat', href: 'https://veilstudio.io/veilchat/' },
   ],
   company: [
-    { name: 'About', href: 'https://veilstudio.io/security/' },
+    { name: 'About', href: '/#about' },
     { name: 'Blog', href: 'https://veilstudio.io/veilpix/blog/' },
-    { name: 'Careers', href: '#careers' },
-    { name: 'Contact', href: '#contact' },
+    { name: 'Contact', href: '/#contact' },
   ],
   legal: [
-    { name: 'Privacy Policy', href: '#privacy' },
-    { name: 'Terms of Service', href: '#terms' },
+    { name: 'Privacy Policy', href: 'https://veilstudio.io/veilpix/privacy/' },
+    { name: 'Terms of Service', href: 'https://veilstudio.io/veilpix/terms/' },
     { name: 'Security', href: '/security' },
   ],
 }

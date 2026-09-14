@@ -91,6 +91,21 @@ if (!stage || !copyLayer || !route || !track || !progress || !hint || !header
   || !contactStatus || !seoCopy) return
 
 root.dataset.scrollWorldMounted = 'true'
+const lifetime = new AbortController()
+let disposed = false
+let seekAnimationFrame = 0
+let mediaTimer = 0
+root.scrollWorldCleanup = () => {
+  disposed = true
+  lifetime.abort()
+  cancelAnimationFrame(scrollAnimationFrame)
+  cancelAnimationFrame(seekAnimationFrame)
+  window.clearTimeout(mediaTimer)
+  releaseVideos({ persisted: false })
+  segments.forEach((segment) => { segment.video = null })
+  delete root.dataset.scrollWorldMounted
+  delete root.scrollWorldCleanup
+}
 
 const segmentWeight = compactViewport.matches ? 2.15 : 1.85
 const connectorWeight = compactViewport.matches ? 1.15 : 0.9
@@ -143,15 +158,15 @@ document.documentElement.classList.toggle('is-stills', stillsOnly)
 
 layout()
 render()
-requestAnimationFrame(seekLoop)
+seekAnimationFrame = requestAnimationFrame(seekLoop)
 
-contactForm.addEventListener('submit', submitContactForm)
-siteLinksToggle?.addEventListener('click', toggleSiteLinks)
-siteLinksPanel?.addEventListener('click', (event) => event.stopPropagation())
-document.addEventListener('click', closeSiteLinks)
-document.addEventListener('keydown', onDocumentKeydown)
+contactForm.addEventListener('submit', submitContactForm, { signal: lifetime.signal })
+siteLinksToggle?.addEventListener('click', toggleSiteLinks, { signal: lifetime.signal })
+siteLinksPanel?.addEventListener('click', (event) => event.stopPropagation(), { signal: lifetime.signal })
+document.addEventListener('click', closeSiteLinks, { signal: lifetime.signal })
+document.addEventListener('keydown', onDocumentKeydown, { signal: lifetime.signal })
 document.querySelectorAll('[data-scroll-finale]').forEach((link) => {
-  link.addEventListener('click', scrollToFinale)
+  link.addEventListener('click', scrollToFinale, { signal: lifetime.signal })
 })
 
 const enableMedia = () => {
@@ -161,16 +176,20 @@ const enableMedia = () => {
 }
 
 if (targetScrollY > 0) enableMedia()
-else window.setTimeout(enableMedia, 350)
-window.addEventListener('wheel', enableMedia, { once: true, passive: true })
-window.addEventListener('touchstart', enableMedia, { once: true, passive: true })
-window.addEventListener('touchend', onMediaGesture, { passive: true })
-window.addEventListener('click', onMediaGesture)
-window.addEventListener('keydown', onMediaGesture)
-window.addEventListener('scroll', onScroll, { passive: true })
-window.addEventListener('resize', onResize)
-window.addEventListener('orientationchange', layout)
-window.addEventListener('pagehide', releaseVideos)
+else mediaTimer = window.setTimeout(enableMedia, 350)
+window.addEventListener('wheel', enableMedia, { once: true, passive: true, signal: lifetime.signal })
+window.addEventListener('touchstart', enableMedia, { once: true, passive: true, signal: lifetime.signal })
+window.addEventListener('touchend', onMediaGesture, { passive: true, signal: lifetime.signal })
+window.addEventListener('click', onMediaGesture, { signal: lifetime.signal })
+window.addEventListener('keydown', onMediaGesture, { signal: lifetime.signal })
+window.addEventListener('scroll', onScroll, { passive: true, signal: lifetime.signal })
+window.addEventListener('resize', onResize, { signal: lifetime.signal })
+window.addEventListener('orientationchange', layout, { signal: lifetime.signal })
+window.addEventListener('pagehide', releaseVideos, { signal: lifetime.signal })
+window.addEventListener('hashchange', onHashChange, { signal: lifetime.signal })
+// Native anchors cannot position a fixed scene. Resolve them after the track
+// has its final height, even when this async script arrives after page load.
+if (window.location.hash) onHashChange()
 
 function mediaUrl(id, type) {
   const mobile = phoneClass ? '-m' : ''
@@ -258,6 +277,11 @@ function makeRouteButton(scene, index) {
 }
 
 function layout() {
+  // The browser may clamp scrollY to a new maximum before resize fires.
+  // Preserve the scene we rendered, especially the fully revealed finale.
+  const previousProgress = totalPixels > 0
+    ? (finale.getAttribute('aria-hidden') === 'false' ? 1 : clamp(renderedScrollY / totalPixels))
+    : null
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame)
   scrollAnimationFrame = 0
   viewportHeight = window.innerHeight
@@ -271,6 +295,7 @@ function layout() {
   })
   totalPixels = offset * viewportHeight
   track.style.height = `${totalPixels + viewportHeight}px`
+  if (previousProgress !== null) window.scrollTo({ top: previousProgress * totalPixels, behavior: 'instant' })
   targetScrollY = window.scrollY || window.pageYOffset
   renderedScrollY = targetScrollY
   render(renderedScrollY)
@@ -350,6 +375,10 @@ function findNearbyBoundary(y, radius) {
 }
 
 function showSegment(segment, opacity, zIndex) {
+  if (segment.kind === 'finale' && !segment.element.classList.contains('has-frame')) {
+    const poster = stillsOnly || segment.target >= 0.94 ? segment.still : segment.poster
+    if (segment.image.getAttribute('src') !== poster) segment.image.src = poster
+  }
   segment.element.style.opacity = String(opacity)
   segment.element.style.zIndex = String(zIndex)
   segment.visible = opacity > 0.002
@@ -367,6 +396,7 @@ function renderCopy(segment) {
     copy.style.pointerEvents = 'none'
     copy.classList.remove('is-interactive')
     copy.setAttribute('aria-hidden', 'true')
+    copy.setAttribute('inert', '')
   })
 
   if (segment.kind === 'finale') return
@@ -392,6 +422,7 @@ function setCopy(copy, opacity, offsetY = 0) {
   copy.classList.toggle('is-interactive', interactive)
   copy.style.pointerEvents = interactive ? 'auto' : 'none'
   copy.setAttribute('aria-hidden', interactive ? 'false' : 'true')
+  copy.toggleAttribute('inert', !interactive)
 }
 
 function setActiveScene(index) {
@@ -420,6 +451,8 @@ function renderFinale(progressValue, isActive) {
   header.style.pointerEvents = chromeOpacity < 0.05 ? 'none' : ''
   route.style.opacity = String(chromeOpacity)
   progressBar.style.opacity = String(chromeOpacity)
+  header.toggleAttribute('inert', chromeOpacity < 0.05)
+  route.toggleAttribute('inert', chromeOpacity < 0.05)
 
   if (chromeOpacity < 0.35 && siteLinksPanel && !siteLinksPanel.hidden) setSiteLinksOpen(false)
 
@@ -452,10 +485,10 @@ async function loadClip(segment) {
   if (!segment.image.src) segment.image.src = segment.poster
 
   try {
-    const response = await fetch(segment.clip)
+    const response = await fetch(segment.clip, { signal: lifetime.signal })
     if (!response.ok) throw new Error(`Video request failed: ${response.status}`)
     const blob = await response.blob()
-    if (stillsOnly) return
+    if (stillsOnly || disposed) return
 
     const video = document.createElement('video')
     segment.blobUrl = URL.createObjectURL(blob)
@@ -470,13 +503,13 @@ async function loadClip(segment) {
     video.addEventListener('loadedmetadata', () => {
       segment.ready = true
       render()
-    })
+    }, { signal: lifetime.signal })
     video.addEventListener('seeked', () => {
       revealVideoFrame(segment)
-    })
+    }, { signal: lifetime.signal })
     video.addEventListener('loadeddata', () => {
       if (userReady) primeVideo(segment)
-    })
+    }, { signal: lifetime.signal })
     segment.video = video
     segment.element.appendChild(video)
     video.src = segment.blobUrl
@@ -486,11 +519,12 @@ async function loadClip(segment) {
 }
 
 function seekLoop() {
+  if (disposed) return
   for (const segment of segments) {
     if (!segment.visible && Math.abs(segment.current - segment.target) < 0.002) continue
     seekVideo(segment)
   }
-  requestAnimationFrame(seekLoop)
+  seekAnimationFrame = requestAnimationFrame(seekLoop)
 }
 
 function seekVideo(segment) {
@@ -635,12 +669,33 @@ function onDocumentKeydown(event) {
 }
 
 function scrollToFinale(event) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
   event.preventDefault()
   setSiteLinksOpen(false)
-  window.scrollTo({
-    top: totalPixels,
-    behavior: reduceMotion ? 'auto' : 'smooth',
-  })
+  const hash = new URL(event.currentTarget.href, window.location.href).hash
+  if (window.location.hash !== hash) window.history.pushState(null, '', hash)
+  // pushState does not emit hashchange; repeated clicks need to work too.
+  onHashChange()
+}
+
+function onHashChange() {
+  const hash = window.location.hash.toLowerCase()
+  const isFinale = hash === '#contact' || hash === '#about'
+  if (!isFinale && hash !== '#home' && hash !== '') return
+  if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame)
+  scrollAnimationFrame = 0
+  window.scrollTo({ top: isFinale ? totalPixels : 0, behavior: 'instant' })
+  targetScrollY = window.scrollY || 0
+  renderedScrollY = targetScrollY
+  render(renderedScrollY)
+  if (isFinale) {
+    const destination = hash === '#about' ? finaleFooter : finaleContact
+    // The finale scrolls independently on smaller screens. Reset it when
+    // returning to Contact after following About or scrolling the footer.
+    finale.scrollTop = hash === '#about' ? destination.offsetTop : 0
+    destination.setAttribute('tabindex', '-1')
+    destination.focus({ preventScroll: true })
+  }
 }
 
 async function submitContactForm(event) {

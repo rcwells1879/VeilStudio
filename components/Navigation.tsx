@@ -9,7 +9,7 @@ const navigation = [
   { name: 'Home', href: '/#home' },
   { name: 'About', href: '/#about' },
   { name: 'Apps', href: '#', isDropdown: true },
-  { name: 'Security', href: 'https://veilstudio.io/security/' },
+  { name: 'Security', href: '/security/' },
   { name: 'Contact', href: '/#contact' },
 ]
 
@@ -67,6 +67,7 @@ export default function Navigation() {
                 item.isDropdown ? (
                   <div key={item.name} className="relative" ref={dropdownRef}>
                     <button
+                      aria-expanded={appsDropdownOpen}
                       onClick={handleAppsClick}
                       className="text-gray-300 hover:text-white transition-colors duration-300 font-medium flex items-center gap-1"
                     >
@@ -114,6 +115,8 @@ export default function Navigation() {
 
           <div className="md:hidden">
             <button
+              aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="text-gray-300 hover:text-white"
             >
@@ -130,6 +133,7 @@ export default function Navigation() {
                 item.isDropdown ? (
                   <div key={item.name}>
                     <button
+                      aria-expanded={mobileAppsOpen}
                       onClick={() => setMobileAppsOpen(!mobileAppsOpen)}
                       className="text-gray-300 hover:text-white w-full text-left px-3 py-2 text-base font-medium transition-colors duration-300 flex items-center justify-between"
                     >

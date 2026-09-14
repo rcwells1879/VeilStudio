@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
+import ScrollWorldController from './ScrollWorldController'
 
 type SiteLink = {
   name: string
@@ -257,7 +258,7 @@ export default function ScrollWorldHome() {
         </section>
       </main>
 
-      <script src="/scroll-world/scroll-world.js?v=20260914-1" async />
+      <ScrollWorldController />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
