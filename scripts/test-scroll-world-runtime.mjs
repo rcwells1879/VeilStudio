@@ -20,6 +20,7 @@ function makeHarness() {
     compactViewport: { matches: true },
     stillsOnly: false,
     userReady: false,
+    activeSegmentIndex: 0,
     segments: [],
     stillsFallbacks: 0,
     revoked: [],
@@ -116,13 +117,17 @@ test('permission rejection during async loading waits for a gesture', async () =
   assert.equal(segment.primed, true)
 })
 
-test('confirmed policy rejection on a gesture still provides the stills fallback', async () => {
+test('policy rejection never disables scroll seeking for all clips', async () => {
   const runtime = makeHarness()
   const segment = makeSegment()
   runtime.primeVideo(segment, true)
   segment.pending[0].reject(mediaError('NotAllowedError'))
   await flush()
-  assert.equal(runtime.stillsFallbacks, 1)
+  assert.equal(runtime.stillsFallbacks, 0)
+  runtime.snapSegmentTime(segment, 0.5)
+  assert.deepEqual(segment.writes, [4])
+  runtime.primeVideo(segment, true)
+  assert.equal(segment.pending.length, 2)
 })
 
 test('scroll seeks wait for warm-up and then catch up to the latest target', async () => {
@@ -157,13 +162,18 @@ test('scene endpoints never interrupt a pending seek, including reverse scroll',
   assert.deepEqual(segment.writes, [4, 7.992, 0])
 })
 
-test('back/forward cache preserves video URLs until the page is discarded', () => {
+test('back/forward cache preserves native media until the page is discarded', () => {
   const runtime = makeHarness()
-  runtime.segments.push({ blobUrl: 'blob:scene' })
+  const calls = []
+  runtime.segments.push({ video: {
+    pause() { calls.push('pause') },
+    removeAttribute(name) { calls.push(name) },
+    load() { calls.push('load') },
+  } })
   runtime.releaseVideos({ persisted: true })
-  assert.deepEqual(runtime.revoked, [])
+  assert.deepEqual(calls, [])
   runtime.releaseVideos({ persisted: false })
-  assert.deepEqual(runtime.revoked, ['blob:scene'])
+  assert.deepEqual(calls, ['pause', 'src', 'load'])
 })
 
 const bootstrap = source.slice(source.lastIndexOf("if (document.readyState"))
@@ -171,7 +181,8 @@ const bootstrap = source.slice(source.lastIndexOf("if (document.readyState"))
 function navigationHarness(hash = '#contact') {
   const target = () => ({ offsetTop: 600, attributes: {}, setAttribute(k, v) { this.attributes[k] = v }, focus(options) { this.focusOptions = options } })
   const context = {
-    window: { location: { hash }, scrollY: 0, scrollTo({ top }) { this.scrollY = top } },
+    window: { location: { hash }, innerHeight: 800, scrollY: 0, scrollTo({ top }) { this.scrollY = top } },
+    track: { style: {} },
     totalPixels: 8000, scrollAnimationFrame: 17, targetScrollY: 0, renderedScrollY: 0,
     finale: { scrollTop: 300 }, finaleContact: target(), finaleFooter: target(),
     cancelAnimationFrame(id) { context.cancelled = id },
@@ -227,6 +238,39 @@ test('resize preserves the visible finale even when the browser already clamped 
   assert.equal(runtime.window.scrollY, 2400)
   assert.equal(runtime.lastRender, 2400)
   assert.equal(runtime.track.style.height, '3000px')
+})
+
+test('mobile toolbar height changes keep the finale reachable without moving scene bands', () => {
+  const runtime = navigationHarness()
+  runtime.coarsePointer = true
+  runtime.compactViewport = { matches: true }
+  runtime.laidOutWidth = runtime.window.innerWidth = 390
+  runtime.window.innerHeight = 844
+  runtime.targetScrollY = 8000
+  runtime.finale.getAttribute = () => 'false'
+  runtime.onScroll = () => { runtime.scrolled = true }
+  runtime.layout = () => { throw new Error('Toolbar resizing must not rebuild the scene bands') }
+  vm.runInContext(runtimeFunction('onResize'), runtime)
+  runtime.onResize()
+  assert.equal(runtime.track.style.height, '8844px')
+  assert.equal(runtime.window.scrollY, 8000)
+  assert.equal(runtime.scrolled, true)
+  runtime.targetScrollY = runtime.window.scrollY = 7970
+  runtime.onResize()
+  assert.equal(runtime.window.scrollY, 7970, 'toolbar updates must not undo a user scrolling upward')
+})
+
+test('entering at Contact prepares the preceding clip for reverse scrolling', () => {
+  const prepared = []
+  const runtime = { segments: Array.from({ length: 6 }, () => ({ image: { src: '' } })),
+    mediaEnabled: true, stillsOnly: false, loadClip(segment) { prepared.push(runtime.segments.indexOf(segment)) } }
+  vm.createContext(runtime)
+  vm.runInContext(runtimeFunction('loadNearby'), runtime)
+  runtime.loadNearby(8000, 5)
+  assert.deepEqual(prepared, [4, 5])
+  prepared.length = 0
+  runtime.loadNearby(4000, 3)
+  assert.deepEqual(prepared, [2, 3, 4])
 })
 
 for (const readyState of ['loading', 'interactive', 'complete']) {

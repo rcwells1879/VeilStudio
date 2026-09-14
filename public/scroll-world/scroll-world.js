@@ -52,7 +52,6 @@ const compactViewport = window.matchMedia('(max-width: 900px)')
 const phoneClass = Math.min(window.screen.width, window.screen.height) <= 600
 const connection = navigator.connection
 const dataSaver = Boolean(connection?.saveData)
-const slowConnection = /^(slow-2g|2g|3g)$/.test(connection?.effectiveType || '')
 const forcedStills = new URLSearchParams(window.location.search).has('stills')
 let stillsOnly = reduceMotion || dataSaver || forcedStills
 let mediaEnabled = false
@@ -215,6 +214,7 @@ function makeSegment(config) {
   image.alt = ''
   image.decoding = 'async'
   image.draggable = false
+  if (config.kind === 'finale') image.src = config.still
   if (!image.parentElement) element.appendChild(image)
   if (!existingElement) stage.appendChild(element)
 
@@ -225,7 +225,6 @@ function makeSegment(config) {
     clip: mediaUrl(config.id, 'video'),
     poster: mediaUrl(config.id, 'posters'),
     video: null,
-    blobUrl: null,
     loading: false,
     ready: false,
     priming: false,
@@ -375,7 +374,10 @@ function findNearbyBoundary(y, radius) {
 }
 
 function showSegment(segment, opacity, zIndex) {
-  if (segment.kind === 'finale' && !segment.element.classList.contains('has-frame')) {
+  if (segment.kind === 'finale') {
+    // Navigation to Contact must not flash a stale decoded frame from an
+    // earlier visit while the video seeks to its endpoint.
+    segment.element.classList.toggle('is-final-still', segment.target >= 0.995)
     const poster = stillsOnly || segment.target >= 0.94 ? segment.still : segment.poster
     if (segment.image.getAttribute('src') !== poster) segment.image.src = poster
   }
@@ -472,26 +474,19 @@ function loadNearby(y, activeIndex) {
     }
 
     if (!mediaEnabled || stillsOnly) return
-    const lookahead = slowConnection ? 0.08 : 0.48
-    const inWindow = y >= segment.start - lookahead * viewportHeight
-      && y <= segment.end + lookahead * viewportHeight
-    if (inWindow) loadClip(segment)
+    // Prepare neighboring clips while the current one is on screen, rather
+    // than starting a multi-megabyte download just before its boundary.
+    if (Math.abs(distance) <= 1 || segment.visible) loadClip(segment)
   })
 }
 
-async function loadClip(segment) {
+function loadClip(segment) {
   if (!segment.clip || segment.loading || segment.video || stillsOnly) return
   segment.loading = true
   if (!segment.image.src) segment.image.src = segment.poster
 
   try {
-    const response = await fetch(segment.clip, { signal: lifetime.signal })
-    if (!response.ok) throw new Error(`Video request failed: ${response.status}`)
-    const blob = await response.blob()
-    if (stillsOnly || disposed) return
-
     const video = document.createElement('video')
-    segment.blobUrl = URL.createObjectURL(blob)
     video.muted = true
     video.defaultMuted = true
     video.playsInline = true
@@ -509,10 +504,18 @@ async function loadClip(segment) {
     }, { signal: lifetime.signal })
     video.addEventListener('loadeddata', () => {
       if (userReady) primeVideo(segment)
+      revealVideoFrame(segment)
+    }, { signal: lifetime.signal })
+    video.addEventListener('error', () => {
+      // Keep a usable poster if this device cannot decode this particular clip.
+      segment.ready = false
+      segment.element.classList.remove('has-frame')
     }, { signal: lifetime.signal })
     segment.video = video
     segment.element.appendChild(video)
-    video.src = segment.blobUrl
+    // Native media loading supports HTTP range requests and can decode before
+    // the entire file has arrived. Blob loading prevented that on mobile.
+    video.src = segment.clip
   } catch {
     segment.loading = false
   }
@@ -553,8 +556,8 @@ function onMediaGesture() {
   enableMedia()
   // touchend/click can satisfy iPhone playback permission. Keep listening so a
   // clip fetched after the first gesture can retry; primed clips are skipped.
-  segments.forEach((segment) => {
-    if (segment.visible) primeVideo(segment, true)
+  segments.forEach((segment, index) => {
+    if (segment.visible || Math.abs(index - activeSegmentIndex) <= 1) primeVideo(segment, true)
   })
 }
 
@@ -577,10 +580,8 @@ function primeVideo(segment, fromGesture = false) {
     if (segment.video !== video) return
     segment.priming = false
     segment.primeNeedsGesture = true
-    // AbortError means playback was interrupted, not that animation is blocked.
-    // Async loading also lacks user activation. Only a policy rejection during
-    // a real gesture is a reason to use the stills fallback.
-    if (error?.name === 'NotAllowedError' && fromGesture) enterStillsMode()
+    // An iOS playback-policy rejection does not prove that seeking is blocked.
+    // Keep the scroll animation and allow a later gesture to warm up the clip.
   }
 
   try {
@@ -597,10 +598,13 @@ function enterStillsMode() {
   stillsOnly = true
   document.documentElement.classList.add('is-stills')
   segments.forEach((segment) => {
-    if (segment.video) segment.video.remove()
-    if (segment.blobUrl) URL.revokeObjectURL(segment.blobUrl)
+    if (segment.video) {
+      segment.video.pause()
+      segment.video.removeAttribute('src')
+      segment.video.load()
+      segment.video.remove()
+    }
     segment.video = null
-    segment.blobUrl = null
     segment.ready = false
     segment.element.classList.remove('has-frame')
     segment.image.src = segment.still
@@ -637,7 +641,16 @@ function onResize() {
   const widthChanged = Math.abs(window.innerWidth - laidOutWidth) > 2
   // Chrome's mobile toolbar changes viewport height while scrolling. Rebuilding the
   // scene bands for that height-only resize makes the pinned world appear to scroll.
-  if ((coarsePointer || compactViewport.matches) && !widthChanged) return
+  if ((coarsePointer || compactViewport.matches) && !widthChanged) {
+    const atFinale = Math.abs(targetScrollY - totalPixels) < 2
+      && finale.getAttribute('aria-hidden') === 'false'
+    // Keep scene bands stable as iOS browser chrome expands/collapses, but
+    // update the trailing viewport so totalPixels remains reachable.
+    track.style.height = `${totalPixels + window.innerHeight}px`
+    if (atFinale) window.scrollTo({ top: totalPixels, behavior: 'instant' })
+    onScroll()
+    return
+  }
   layout()
 }
 
@@ -645,7 +658,11 @@ function releaseVideos(event) {
   // A back/forward-cache entry keeps these same video elements alive on return.
   if (event.persisted) return
   segments.forEach((segment) => {
-    if (segment.blobUrl) URL.revokeObjectURL(segment.blobUrl)
+    if (segment.video) {
+      segment.video.pause()
+      segment.video.removeAttribute('src')
+      segment.video.load()
+    }
   })
 }
 
@@ -682,6 +699,9 @@ function onHashChange() {
   const hash = window.location.hash.toLowerCase()
   const isFinale = hash === '#contact' || hash === '#about'
   if (!isFinale && hash !== '#home' && hash !== '') return
+  // Also reconcile the range at navigation time in case a mobile toolbar
+  // resize has not dispatched its event yet.
+  track.style.height = `${totalPixels + window.innerHeight}px`
   if (scrollAnimationFrame) cancelAnimationFrame(scrollAnimationFrame)
   scrollAnimationFrame = 0
   window.scrollTo({ top: isFinale ? totalPixels : 0, behavior: 'instant' })

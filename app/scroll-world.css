@@ -269,6 +269,14 @@ a {
   opacity: 0;
 }
 
+.world-segment.is-final-still video {
+  opacity: 0;
+}
+
+.world-segment.is-final-still img {
+  opacity: 1;
+}
+
 .world-copy {
   position: fixed;
   z-index: 40;

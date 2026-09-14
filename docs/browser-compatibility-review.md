@@ -1,5 +1,14 @@
 # Browser implementation review — September 14, 2026
 
+## Follow-up: iPhone Chrome toolbar and video loading
+
+The initial matrix below established navigation behavior, but did not verify decoded animation frames. A subsequent user report exposed two additional defects:
+
+- A height-only mobile-toolbar resize left the scroll track at its old height. Reproduced with an iPhone-sized viewport changing from 390×664 to 390×844: the menu's Contact link reached the document bottom while the form opacity remained zero. The trailing viewport space now updates without moving scene boundaries, and anchor navigation reconciles that height again. Toolbar changes also preserve an intentional upward scroll.
+- Videos waited for complete multi-megabyte blob downloads, with loading starting shortly before each boundary. Native video URLs now allow HTTP range loading; current, preceding, and following clips prepare for scrolling in either direction. Playback-policy rejection no longer globally disables all animation. Contact uses its final still at the endpoint rather than exposing a stale video frame while seeking.
+
+Additional validation: Chromium, Firefox, and WebKit decoded three distinct pixel samples per clip in both directions across all six clips, starting from a fresh Contact entry and reversing through the story. A touch/wheel check confirmed that scrolling upward leaves the Contact overlay. At a throttled 1.28 Mbps, Chromium displayed a frame at 0.50 seconds of an 8.04-second clip while only 0.85 seconds was buffered, confirming playback no longer waits for a full download. The preview server used HTTP Range support, matching production's verified 206 responses. Production build and 15 runtime regression tests passed. Physical iPhone Chrome verification remains outside this environment.
+
 Scope: VeilStudio homepage, Security page, shared navigation/footer, scroll controller, and static-export configuration. VeilPix's Contact URL and consuming links were inspected in its owning repository; its complete application and VeilChat were not audited. No upstream source was copied or changed.
 
 ## Confirmed defects fixed locally

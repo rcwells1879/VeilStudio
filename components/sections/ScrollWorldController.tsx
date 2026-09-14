@@ -13,7 +13,7 @@ export default function ScrollWorldController() {
 
   return (
     <Script
-      src="/scroll-world/scroll-world.js?v=20260914-2"
+      src="/scroll-world/scroll-world.js?v=20260914-3"
       strategy="afterInteractive"
       onReady={() => {
         const runtime = window as Window & { initScrollWorld?: () => void }
