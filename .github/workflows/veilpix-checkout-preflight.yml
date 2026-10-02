@@ -1,0 +1,67 @@
+name: Check VeilPix repository access
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_private:
+        description: Require VeilPix to be private (disable only for the initial public-repository check)
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require VeilPix read credential
+        shell: bash
+        env:
+          VEILPIX_READ_TOKEN: ${{ secrets.VEILPIX_READ_TOKEN }}
+        run: |
+          if [[ -z "$VEILPIX_READ_TOKEN" ]]; then
+            echo "::error::Missing VEILPIX_READ_TOKEN. Configure the VeilStudio Actions secret with read-only access to rcwells1879/veilpix."
+            exit 1
+          fi
+
+      - name: Check repository visibility with the read credential
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.VEILPIX_READ_TOKEN }}
+          REQUIRE_PRIVATE: ${{ inputs.require_private }}
+        run: |
+          private=$(gh api repos/rcwells1879/veilpix --jq '.private')
+          case "$private" in
+            true)
+              echo "VeilPix is private; checking authenticated checkout."
+              ;;
+            false)
+              if [[ "$REQUIRE_PRIVATE" == "true" ]]; then
+                echo "::error::VeilPix is public. This run cannot prove private-repository access."
+                exit 1
+              fi
+              echo "::warning::VeilPix is public. Success does not prove private access; the owner must verify token repository selection and Contents: read."
+              ;;
+            *)
+              echo "::error::Could not determine VeilPix repository visibility."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout VeilPix
+        uses: actions/checkout@v4
+        with:
+          repository: rcwells1879/veilpix
+          ref: main
+          path: veilpix
+          token: ${{ secrets.VEILPIX_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Report checked-out commit
+        working-directory: veilpix
+        shell: bash
+        run: |
+          echo "Checked-out VeilPix main commit: $(git rev-parse HEAD)"
