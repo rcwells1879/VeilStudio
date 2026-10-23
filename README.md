@@ -1,7 +1,7 @@
 # VeilStudio Website
 
 Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io).
-Statically exported Next.js site deployed to cPanel via GitHub Actions.
+Statically exported Next.js site assembled with VeilPix and VeilChat, then published to Cloudflare Pages by GitHub Actions.
 
 **Tagline**: _Your AI, Your Keys, Your Control_
 
@@ -13,16 +13,16 @@ Statically exported Next.js site deployed to cPanel via GitHub Actions.
 - ESLint `^9.20.0` flat config (`next/core-web-vitals`)
 - Icons: `lucide-react`
 - Contact form: Formspree (client-side POST)
-- Node `>=18`
+- Node `22.23.4` (supported range `>=22.23.4 <23`; pinned in `.nvmrc` and CI)
 
 ## Getting Started
 
-Requires Node 18+.
+Use Node 22.23.4. With nvm, run `nvm use` before installing dependencies.
 
 ```bash
 git clone https://github.com/rcwells1879/VeilStudio.git
 cd VeilStudio
-npm install
+npm ci
 npm run dev
 ```
 
@@ -88,39 +88,39 @@ The live contact form POSTs directly to Formspree from the client in
    ```
 
 > ℹ️ `app/api/contact/route.ts` (Resend integration) exists in the tree but is
-> inert in production because the site is static-exported — cPanel has no Node
+> inert in production because the site is static-exported — Pages serves the built assets without a Node
 > runtime. Keep or remove depending on your future plans.
 
-## Deployment (GitHub Actions → cPanel via FTP)
+## Deployment (GitHub Actions to Cloudflare Pages)
 
-Defined in `.github/workflows/deploy.yml`. Pushes to `main` trigger:
+The active workflow is `.github/workflows/deploy.yml`, job `deploy`. Pushes to
+`main`, manual dispatch, and the existing app repository dispatch events use:
 
-1. `actions/checkout@v3`
-2. `actions/setup-node@v3` (Node 18, npm cache)
-3. `npm ci`
-4. `npm run build`
-5. `SamKirkland/FTP-Deploy-Action@v4.3.4` uploads `./out/` → `/public_html/`
+1. `actions/checkout@v4` to check out VeilStudio, VeilPix and VeilChat.
+2. `actions/setup-node@v4` to install application build Node **22.23.4**.
+3. Locked installs and static builds for all three apps.
+4. `scripts/assemble-cloudflare-pages.mjs` to combine the outputs.
+5. The existing `cloudflare/wrangler-action@v3` Pages publication.
 
-The FTP step excludes `veilchat/**` and `apps/**` on the server so sibling
-sub-apps at `veilstudio.io/veilchat/` and `veilstudio.io/apps/...` are not
-wiped on deploy.
+The Node installed for `npm`, builds and tests is separate from a GitHub action's
+internal JavaScript runtime. This update changes the application build version;
+action versions, permissions and credentials are unchanged.
 
-### Required GitHub Secrets
+The workflow uses the existing `VEILPIX_READ_TOKEN`, `VITE_CLERK_PUBLISHABLE_KEY`,
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `GITHUB_TOKEN` settings.
+No FTP credentials or cPanel host are part of this release path.
 
-Add these under **Settings → Secrets and variables → Actions**:
+Before publishing, run `npm run type-check`, `npm run test:scroll-world` and
+`npm run build` under Node 22.23.4. Confirm the completed Pages run and public
+assets before reporting a release live. App repository dispatches bind the app
+checkout to their requested source commit; preserve that behavior.
 
-- `FTP_SERVER` — cPanel server hostname or IP
-- `FTP_USERNAME` — cPanel FTP user
-- `FTP_PASSWORD` — cPanel FTP password
+### Retired cPanel instructions
 
-### Hosting Additional Apps at Subdirectories
-
-To deploy a separate app at e.g. `veilstudio.io/veilchat/`:
-
-1. Upload that app's build into `/public_html/veilchat/` (manually or via its own workflow).
-2. It will remain untouched on subsequent site deploys thanks to the exclude list above.
-
-> `.cpanel.yml` is **legacy** and not used by the active deployment pipeline.
+cPanel is no longer used. Its former configuration is archived at
+`docs/legacy/cpanel.yml.example`; the old editor/FTP guide is
+`docs/legacy/vscode-cpanel-guide.md`. Both are historical references, not setup
+or deployment instructions. Do not restore them to an active cPanel path.
 
 ## Configuration Notes
 
@@ -129,7 +129,7 @@ To deploy a separate app at e.g. `veilstudio.io/veilchat/`:
 ```js
 const nextConfig = {
   output: 'export',      // generates static files in out/
-  trailingSlash: true,   // required for cPanel-style static hosting
+  trailingSlash: true,   // directory-style static URLs
   images: { unoptimized: true, domains: [] },
 }
 ```
@@ -142,7 +142,7 @@ Because of `output: 'export'`:
 
 ## Troubleshooting
 
-- **FTP timeout on deploy**: verify `FTP_SERVER` (try the IP), credentials, and that your host permits FTP from GitHub's IP range.
+- **Pages release failed**: inspect the failed GitHub Actions step; do not replace the active workflow with the archived FTP instructions.
 - **Changes not live**: hard-refresh the browser; clear Cloudflare cache if applicable.
 - **Form submissions failing**: check the Formspree dashboard; verify the form ID in `ContactSection.tsx` matches.
 - **ESLint "unescaped entities" errors**: use `&apos;` or swap quote style in JSX.
@@ -152,7 +152,7 @@ Because of `output: 'export'`:
 - Next.js: <https://nextjs.org/docs>
 - Tailwind CSS: <https://tailwindcss.com/docs>
 - Formspree: <https://formspree.io/docs>
-- FTP Deploy Action: <https://github.com/SamKirkland/FTP-Deploy-Action>
+- Cloudflare Pages: <https://developers.cloudflare.com/pages/>
 
 ## License
 

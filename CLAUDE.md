@@ -1,6 +1,6 @@
 # VeilStudio Website
 
-Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io). Statically exported Next.js site deployed to cPanel.
+Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io). Statically exported Next.js site published to Cloudflare Pages through GitHub Actions.
 
 ## Stack
 
@@ -12,7 +12,7 @@ Marketing / landing site for VeilStudio at [veilstudio.io](https://veilstudio.io
 - **Icons**: `lucide-react` + local `components/ui/GoogleIcon.tsx`
 - **Font**: Inter (Tailwind default sans)
 - **Contact form**: Formspree (`https://formspree.io/f/xdkdvdol`, POSTed directly from the client)
-- **Node**: `>=18` required (CI uses Node 18)
+- **Node**: `22.23.4`, matching `.nvmrc`, package engines and the Pages application build.
 
 ## Directory Layout
 
@@ -37,7 +37,7 @@ components/
     GoogleIcon.tsx
 public/images/           # Hero1.png, Hero2.png, Hero3.png
 .github/workflows/deploy.yml
-.cpanel.yml              # Legacy, not used by current deploy flow
+docs/legacy/cpanel.yml.example  # Archived, never execute or restore as active configuration
 next.config.js
 tailwind.config.js
 tsconfig.json
@@ -75,13 +75,14 @@ Run from the repo root:
 
 ## Deployment / CI-CD
 
-- Workflow: `.github/workflows/deploy.yml`
-- Trigger: push to `main`
-- Steps: `actions/checkout@v3` → `actions/setup-node@v3` (Node 18, npm cache) → `npm ci` → `npm run build` → `SamKirkland/FTP-Deploy-Action@v4.3.4`
-- Uploads `./out/` to `/public_html/` on the cPanel host
-- **Preserves remote dirs**: excludes `veilchat/**` and `apps/**` so sibling sub-apps are not wiped
-- **Required GitHub Secrets**: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`
-- `.cpanel.yml` in the repo is legacy and is **not** part of the active deploy path — do not rely on it.
+- Active workflow: `.github/workflows/deploy.yml`, job `deploy`.
+- Triggers: pushes to `main`, manual dispatch and existing app repository dispatches.
+- `actions/checkout@v4` checks out the three app sources; dispatched app commits remain pinned by the existing payload.
+- `actions/setup-node@v4` installs application build Node **22.23.4**. This is separate from the action's internal JavaScript runtime.
+- Locked installs and static builds feed `scripts/assemble-cloudflare-pages.mjs`; `cloudflare/wrangler-action@v3` publishes the combined Pages artifact.
+- Keep the existing credentials, action versions and permissions. Never print secrets or substitute the retired FTP workflow.
+- Run `npm run type-check`, `npm run test:scroll-world` and `npm run build` before publishing. Verify the terminal Pages result and public assets.
+- cPanel is no longer used. Its config and editor guide are archived in `docs/legacy/` and must not be executed or reactivated.
 
 ## Important Behaviors / Gotchas
 
@@ -94,5 +95,5 @@ Run from the repo root:
 
 - Keep the design dark-themed, minimalist, and mobile-first.
 - Prefer extending existing `ui/` primitives (`Button`, `Card`, `Container`) over bespoke markup.
-- Never introduce server-only features (dynamic API routes, middleware, server actions) without first removing `output: 'export'` and updating the deploy target — static export on cPanel cannot run them.
+- Never introduce server-only features (dynamic API routes, middleware, server actions) without first removing `output: 'export'` and updating the deploy target — the current static Pages artifact cannot run them.
 - Do not weaken privacy messaging or add analytics/tracking cookies.
