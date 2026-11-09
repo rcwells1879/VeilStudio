@@ -15,13 +15,23 @@ function runtimeFunction(name) {
 }
 
 function makeHarness() {
+  const timers = new Map()
+  let nextTimer = 0
   const context = {
     coarsePointer: true,
     compactViewport: { matches: true },
     stillsOnly: false,
     userReady: false,
     activeSegmentIndex: 0,
+    disposed: false,
+    requestAnimationFrame(callback) { context.paint = callback; return 1 },
+    cancelAnimationFrame() {},
     segments: [],
+    timers,
+    window: {
+      setTimeout(callback) { timers.set(++nextTimer, callback); return nextTimer },
+      clearTimeout(id) { timers.delete(id) },
+    },
     stillsFallbacks: 0,
     revoked: [],
     enableMedia() {},
@@ -29,7 +39,7 @@ function makeHarness() {
     URL: { revokeObjectURL(url) { context.revoked.push(url) } },
   }
   vm.createContext(context)
-  for (const name of ['primeVideo', 'onMediaGesture', 'seekVideo', 'snapSegmentTime', 'revealVideoFrame', 'releaseVideos', 'clamp']) {
+  for (const name of ['primeVideo', 'onMediaGesture', 'seekVideo', 'snapSegmentTime', 'watchVideoFrame', 'frameMatchesTarget', 'confirmVideoFrame', 'revealVideoFrame', 'resetClip', 'retryClip', 'releaseVideos', 'clamp']) {
     vm.runInContext(runtimeFunction(name), context)
   }
   return context
@@ -59,7 +69,8 @@ function makeSegment() {
     primeNeedsGesture: false,
     current: 0,
     target: 0,
-    element: { classList: { add(name) { classes.add(name) } } },
+    frameTime: null,
+    element: { style: {}, classList: { add(name) { classes.add(name) }, remove(name) { classes.delete(name) } } },
     pending,
     writes,
     classes,
@@ -165,15 +176,144 @@ test('scene endpoints never interrupt a pending seek, including reverse scroll',
 test('back/forward cache preserves native media until the page is discarded', () => {
   const runtime = makeHarness()
   const calls = []
-  runtime.segments.push({ video: {
+  runtime.segments.push({ element: { classList: { remove() {} } }, video: {
     pause() { calls.push('pause') },
     removeAttribute(name) { calls.push(name) },
     load() { calls.push('load') },
+    remove() { calls.push('remove') },
   } })
   runtime.releaseVideos({ persisted: true })
   assert.deepEqual(calls, [])
   runtime.releaseVideos({ persisted: false })
-  assert.deepEqual(calls, ['pause', 'src', 'load'])
+  assert.deepEqual(calls, ['pause', 'src', 'load', 'remove'])
+})
+
+test('a warm-up that never resolves cannot block scroll seeking indefinitely', async () => {
+  const runtime = makeHarness()
+  const segment = makeSegment()
+  runtime.primeVideo(segment, true)
+  segment.target = .8
+  runtime.timers.get(segment.primeTimer)()
+  assert.equal(segment.priming, false)
+  assert.equal(segment.primeNeedsGesture, true)
+  runtime.seekVideo(segment)
+  assert.deepEqual(segment.writes, [6.4])
+  runtime.primeVideo(segment, true)
+  segment.pending[0].resolve()
+  await flush()
+  assert.equal(segment.primed, false, 'a late play promise must not complete an expired warm-up')
+  assert.equal(segment.priming, true, 'the new warm-up remains pending')
+  segment.pending[1].resolve()
+  await flush()
+  assert.equal(segment.primed, true)
+})
+
+test('a decoded frame from the wrong position never replaces the poster', () => {
+  const runtime = makeHarness()
+  const segment = makeSegment()
+  segment.target = .7
+  runtime.revealVideoFrame(segment)
+  assert.equal(segment.classes.has('has-frame'), false)
+  runtime.seekVideo(segment)
+  segment.video.seeking = false
+  let callback
+  segment.video.requestVideoFrameCallback = fn => { callback = fn; return 1 }
+  runtime.watchVideoFrame(segment)
+  callback(0, { mediaTime: 0 })
+  assert.equal(segment.classes.has('has-frame'), false, 'currentTime alone does not prove a frame was presented')
+  runtime.watchVideoFrame(segment)
+  callback(0, { mediaTime: 5.6 })
+  assert.equal(segment.classes.has('has-frame'), true)
+})
+
+test('returning to an earlier part of a clip hides the previous visit\'s frame', () => {
+  const runtime = makeHarness()
+  vm.runInContext(runtimeFunction('showSegment'), runtime)
+  const segment = makeSegment()
+  segment.kind = 'scene'
+  segment.target = .8
+  runtime.seekVideo(segment)
+  segment.video.seeking = false
+  runtime.revealVideoFrame(segment)
+  assert.equal(segment.classes.has('has-frame'), true)
+  segment.wasVisible = false
+  segment.target = .1
+  runtime.showSegment(segment, 1, 11)
+  assert.equal(segment.classes.has('has-frame'), false)
+})
+
+test('a completed seek can reveal video when hidden-frame callbacks stop arriving', () => {
+  const runtime = makeHarness()
+  const segment = makeSegment()
+  segment.video.requestVideoFrameCallback = () => 1
+  segment.frameTime = 0
+  segment.target = .6
+  runtime.seekVideo(segment)
+  segment.video.seeking = false
+  runtime.confirmVideoFrame(segment)
+  assert.equal(segment.classes.has('has-frame'), false)
+  runtime.paint()
+  assert.equal(segment.classes.has('has-frame'), false, 'wait for a paint opportunity')
+  runtime.paint()
+  assert.equal(segment.classes.has('has-frame'), true)
+  segment.classes.clear()
+  segment.target = .2
+  runtime.seekVideo(segment)
+  runtime.paint()
+  assert.equal(segment.classes.has('has-frame'), false, 'an older paint callback must not reveal an unfinished seek')
+})
+
+test('visible seeks take priority and distant clips do not compete for decoding', () => {
+  const sought = []
+  const runtime = {
+    disposed: false, activeSegmentIndex: 3, requestAnimationFrame() {},
+    segments: Array.from({ length: 6 }, (_, index) => ({ id: index, ready: true, visible: index === 3, video: { seeking: false } })),
+    seekVideo(segment) { sought.push(segment.id); segment.video.seeking = true },
+  }
+  vm.createContext(runtime)
+  vm.runInContext(runtimeFunction('seekLoop'), runtime)
+  runtime.seekLoop()
+  assert.deepEqual(sought, [3])
+  sought.length = 0
+  runtime.seekVideo = segment => sought.push(segment.id)
+  runtime.segments[3].video.seeking = false
+  runtime.seekLoop()
+  assert.deepEqual(sought, [3, 2, 4])
+})
+
+test('failed clips retry with a fresh element, ignore old events, and stop after three attempts', () => {
+  const runtime = makeHarness()
+  const videos = []
+  runtime.mediaEnabled = true
+  runtime.lifetime = { signal: new AbortController().signal }
+  runtime.document = { createElement() {
+    const listeners = {}
+    const video = {
+      listeners, setAttribute() {}, pause() {}, removeAttribute() {}, load() {}, remove() { this.removed = true },
+      addEventListener(name, fn) { listeners[name] = fn },
+    }
+    videos.push(video)
+    return video
+  } }
+  const segment = {
+    clip: '/clip.mp4', poster: '/poster.webp', image: { src: '' }, attempts: 0,
+    element: { appendChild() {}, classList: { remove() {} } },
+  }
+  runtime.render = () => runtime.loadClip(segment)
+  vm.runInContext(runtimeFunction('loadClip'), runtime)
+  runtime.loadClip(segment)
+  for (let index = 0; index < 3; index += 1) {
+    const video = videos[index]
+    video.listeners.error()
+    assert.equal(video.removed, true)
+    assert.equal(segment.video, null)
+    video.listeners.loadedmetadata()
+    assert.equal(segment.ready, false, 'events from a detached element must not restore stale state')
+    if (index < 2) runtime.timers.get(segment.retryTimer)()
+  }
+  runtime.loadClip(segment)
+  assert.equal(videos.length, 3)
+  assert.equal(segment.retryTimer, 0)
 })
 
 const bootstrap = source.slice(source.lastIndexOf("if (document.readyState"))
@@ -267,10 +407,10 @@ test('entering at Contact prepares the preceding clip for reverse scrolling', ()
   vm.createContext(runtime)
   vm.runInContext(runtimeFunction('loadNearby'), runtime)
   runtime.loadNearby(8000, 5)
-  assert.deepEqual(prepared, [4, 5])
+  assert.deepEqual(prepared, [5, 4])
   prepared.length = 0
   runtime.loadNearby(4000, 3)
-  assert.deepEqual(prepared, [2, 3, 4])
+  assert.deepEqual(prepared, [3, 2, 4])
 })
 
 for (const readyState of ['loading', 'interactive', 'complete']) {

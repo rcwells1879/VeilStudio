@@ -185,6 +185,16 @@ window.addEventListener('scroll', onScroll, { passive: true, signal: lifetime.si
 window.addEventListener('resize', onResize, { signal: lifetime.signal })
 window.addEventListener('orientationchange', layout, { signal: lifetime.signal })
 window.addEventListener('pagehide', releaseVideos, { signal: lifetime.signal })
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    targetScrollY = renderedScrollY = window.scrollY || 0
+    render()
+  }
+}, { signal: lifetime.signal })
+window.addEventListener('online', () => {
+  segments.forEach((segment) => { if (!segment.video) segment.attempts = 0 })
+  render()
+}, { signal: lifetime.signal })
 window.addEventListener('hashchange', onHashChange, { signal: lifetime.signal })
 // Native anchors cannot position a fixed scene. Resolve them after the track
 // has its final height, even when this async script arrives after page load.
@@ -214,7 +224,8 @@ function makeSegment(config) {
   image.alt = ''
   image.decoding = 'async'
   image.draggable = false
-  if (config.kind === 'finale') image.src = config.still
+  // All six small posters are available even after a jump over unloaded clips.
+  image.src = config.kind === 'finale' || stillsOnly ? config.still : mediaUrl(config.id, 'posters')
   if (!image.parentElement) element.appendChild(image)
   if (!existingElement) stage.appendChild(element)
 
@@ -230,6 +241,13 @@ function makeSegment(config) {
     priming: false,
     primed: false,
     primeNeedsGesture: false,
+    primeTimer: 0,
+    retryTimer: 0,
+    attempts: 0,
+    frameCallback: 0,
+    frameTime: null,
+    decodedTime: null,
+    revealAnimationFrame: 0,
     visible: false,
     current: 0,
     target: 0,
@@ -310,6 +328,7 @@ function render(y = renderedScrollY) {
 
   segments.forEach((segment) => {
     segment.element.style.opacity = '0'
+    segment.wasVisible = segment.visible
     segment.visible = false
     const local = clamp((y - segment.start) / (segment.end - segment.start))
     segment.target = local
@@ -384,6 +403,11 @@ function showSegment(segment, opacity, zIndex) {
   segment.element.style.opacity = String(opacity)
   segment.element.style.zIndex = String(zIndex)
   segment.visible = opacity > 0.002
+  // A previously visited clip may still contain a frame from the other end.
+  // Keep its poster until the decoder catches up to this visit's position.
+  if (segment.visible && !segment.wasVisible && !frameMatchesTarget(segment)) {
+    segment.element.classList.remove('has-frame')
+  }
 }
 
 function snapSegmentTime(segment, progress) {
@@ -466,23 +490,30 @@ function renderFinale(progressValue, isActive) {
 }
 
 function loadNearby(y, activeIndex) {
-  segments.forEach((segment, index) => {
-    const distance = index - activeIndex
-    const shouldPreparePoster = Math.abs(distance) <= 1
-    if (shouldPreparePoster && !segment.image.src) {
+  // Start the destination first, including when entering at Contact or jumping
+  // across several clips. Only then spend network/decoder time on neighbors.
+  const indices = new Set([
+    activeIndex,
+    ...segments.flatMap((segment, index) => segment.visible ? [index] : []),
+    activeIndex - 1,
+    activeIndex + 1,
+  ])
+  indices.forEach((index) => {
+    const segment = segments[index]
+    if (!segment) return
+    if (!segment.image.src) {
       segment.image.src = stillsOnly ? segment.still : segment.poster
     }
 
     if (!mediaEnabled || stillsOnly) return
-    // Prepare neighboring clips while the current one is on screen, rather
-    // than starting a multi-megabyte download just before its boundary.
-    if (Math.abs(distance) <= 1 || segment.visible) loadClip(segment)
+    loadClip(segment)
   })
 }
 
 function loadClip(segment) {
-  if (!segment.clip || segment.loading || segment.video || stillsOnly) return
+  if (disposed || !segment.clip || segment.loading || segment.video || segment.retryTimer || segment.attempts >= 3 || stillsOnly) return
   segment.loading = true
+  segment.attempts += 1
   if (!segment.image.src) segment.image.src = segment.poster
 
   try {
@@ -496,36 +527,79 @@ function loadClip(segment) {
     video.setAttribute('webkit-playsinline', '')
     video.setAttribute('aria-hidden', 'true')
     video.addEventListener('loadedmetadata', () => {
+      if (segment.video !== video || disposed) return
+      segment.loading = false
       segment.ready = true
       render()
     }, { signal: lifetime.signal })
     video.addEventListener('seeked', () => {
-      revealVideoFrame(segment)
+      if (segment.video !== video || disposed) return
+      confirmVideoFrame(segment)
+      // Scroll may have crossed another transition while this seek was pending.
+      if (segment.visible) seekVideo(segment)
     }, { signal: lifetime.signal })
     video.addEventListener('loadeddata', () => {
-      if (userReady) primeVideo(segment)
-      revealVideoFrame(segment)
+      if (segment.video !== video || disposed) return
+      if (userReady && (segment.visible || Math.abs(segments.indexOf(segment) - activeSegmentIndex) <= 1)) primeVideo(segment)
+      confirmVideoFrame(segment)
     }, { signal: lifetime.signal })
     video.addEventListener('error', () => {
-      // Keep a usable poster if this device cannot decode this particular clip.
-      segment.ready = false
-      segment.element.classList.remove('has-frame')
+      if (segment.video === video && !disposed) retryClip(segment)
     }, { signal: lifetime.signal })
     segment.video = video
     segment.element.appendChild(video)
+    watchVideoFrame(segment)
     // Native media loading supports HTTP range requests and can decode before
     // the entire file has arrived. Blob loading prevented that on mobile.
     video.src = segment.clip
   } catch {
-    segment.loading = false
+    retryClip(segment)
   }
+}
+
+function resetClip(segment) {
+  window.clearTimeout(segment.retryTimer)
+  window.clearTimeout(segment.primeTimer)
+  cancelAnimationFrame(segment.revealAnimationFrame)
+  const video = segment.video
+  segment.video = null
+  if (video) {
+    if (segment.frameCallback) video.cancelVideoFrameCallback?.(segment.frameCallback)
+    video.pause()
+    video.removeAttribute('src')
+    video.load()
+    video.remove()
+  }
+  segment.loading = segment.ready = segment.priming = segment.primed = segment.primeNeedsGesture = false
+  segment.retryTimer = segment.primeTimer = segment.frameCallback = 0
+  segment.frameTime = null
+  segment.decodedTime = null
+  segment.revealAnimationFrame = 0
+  segment.element.classList.remove('has-frame')
+}
+
+function retryClip(segment) {
+  resetClip(segment)
+  // A failed native media element never retries by itself. Bound retries so an
+  // unavailable asset keeps its poster without producing an endless request loop.
+  if (disposed || stillsOnly || segment.attempts >= 3) return
+  segment.retryTimer = window.setTimeout(() => {
+    segment.retryTimer = 0
+    if (!disposed) render()
+  }, 500 * 2 ** (segment.attempts - 1))
 }
 
 function seekLoop() {
   if (disposed) return
-  for (const segment of segments) {
-    if (!segment.visible && Math.abs(segment.current - segment.target) < 0.002) continue
-    seekVideo(segment)
+  const visible = segments.filter((segment) => segment.visible)
+  visible.forEach(seekVideo)
+  // Do not send all previously loaded clips to their endpoints while the
+  // visible clip is seeking. Mobile devices share a limited decoder budget.
+  const busy = visible.some((segment) => segment.video && (!segment.ready || segment.video.seeking || segment.priming))
+  if (!busy) {
+    segments.forEach((segment, index) => {
+      if (!segment.visible && Math.abs(index - activeSegmentIndex) <= 1) seekVideo(segment)
+    })
   }
   seekAnimationFrame = requestAnimationFrame(seekLoop)
 }
@@ -539,15 +613,55 @@ function seekVideo(segment) {
   const targetTime = clamp(segment.target, 0, 0.999) * (video.duration || 1)
   try {
     if (Math.abs(video.currentTime - targetTime) > epsilon) video.currentTime = targetTime
+    watchVideoFrame(segment)
     segment.current = segment.target
+    revealVideoFrame(segment)
   } catch {
     // Leave the target pending until the media element becomes seekable.
   }
 }
 
+function watchVideoFrame(segment) {
+  const video = segment.video
+  if (!video?.requestVideoFrameCallback || segment.frameCallback) return
+  segment.frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
+    if (disposed || segment.video !== video) return
+    segment.frameCallback = 0
+    segment.frameTime = metadata.mediaTime
+    revealVideoFrame(segment)
+  })
+}
+
+function frameMatchesTarget(segment) {
+  const video = segment.video
+  if (!video || !Number.isFinite(video.duration)) return false
+  const targetTime = clamp(segment.target, 0, 0.999) * video.duration
+  const matches = (time) => Number.isFinite(time) && Math.abs(time - targetTime) < 0.08
+  if (!matches(video.currentTime)) return false
+  return !video.requestVideoFrameCallback || matches(segment.frameTime) || matches(segment.decodedTime)
+}
+
+function confirmVideoFrame(segment) {
+  const video = segment.video
+  if (!video || video.seeking || video.readyState < 2) return
+  // Hidden, paused videos do not consistently deliver frame callbacks in every
+  // engine. A completed seek is a second confirmation that the data is decoded;
+  // allow a paint opportunity before swapping away the poster.
+  const decodedTime = video.currentTime
+  if (segment.revealAnimationFrame) cancelAnimationFrame(segment.revealAnimationFrame)
+  segment.revealAnimationFrame = requestAnimationFrame(() => {
+    segment.revealAnimationFrame = requestAnimationFrame(() => {
+      segment.revealAnimationFrame = 0
+      if (disposed || segment.video !== video || video.seeking || Math.abs(video.currentTime - decodedTime) > 0.04) return
+      segment.decodedTime = decodedTime
+      revealVideoFrame(segment)
+    })
+  })
+}
+
 function revealVideoFrame(segment) {
   const video = segment.video
-  if (!video || video.seeking || video.readyState < 2 || segment.priming) return
+  if (!video || video.seeking || video.readyState < 2 || segment.priming || !frameMatchesTarget(segment)) return
   segment.element.classList.add('has-frame')
 }
 
@@ -566,9 +680,12 @@ function primeVideo(segment, fromGesture = false) {
   if (!video || stillsOnly || !(coarsePointer || compactViewport.matches)) return
   if (segment.priming || segment.primed || (segment.primeNeedsGesture && !fromGesture)) return
 
+  const attempt = segment.primeAttempt = (segment.primeAttempt || 0) + 1
   segment.priming = true
   const finish = () => {
-    if (segment.video !== video) return
+    if (segment.video !== video || !segment.priming || segment.primeAttempt !== attempt) return
+    window.clearTimeout(segment.primeTimer)
+    segment.primeTimer = 0
     video.pause()
     segment.priming = false
     segment.primed = true
@@ -577,13 +694,22 @@ function primeVideo(segment, fromGesture = false) {
     revealVideoFrame(segment)
   }
   const failed = (error) => {
-    if (segment.video !== video) return
+    if (segment.video !== video || !segment.priming || segment.primeAttempt !== attempt) return
+    window.clearTimeout(segment.primeTimer)
+    segment.primeTimer = 0
     segment.priming = false
     segment.primeNeedsGesture = true
     // An iOS playback-policy rejection does not prove that seeking is blocked.
     // Keep the scroll animation and allow a later gesture to warm up the clip.
   }
 
+  // Some mobile play() promises remain pending when loading is interrupted.
+  // Seeking must be allowed to resume even if that warm-up never completes.
+  segment.primeTimer = window.setTimeout(() => {
+    if (segment.video !== video || segment.primeAttempt !== attempt) return
+    failed()
+    if (segment.video === video) video.pause()
+  }, 1800)
   try {
     const play = video.play()
     if (play?.then) play.then(finish, failed)
@@ -598,15 +724,7 @@ function enterStillsMode() {
   stillsOnly = true
   document.documentElement.classList.add('is-stills')
   segments.forEach((segment) => {
-    if (segment.video) {
-      segment.video.pause()
-      segment.video.removeAttribute('src')
-      segment.video.load()
-      segment.video.remove()
-    }
-    segment.video = null
-    segment.ready = false
-    segment.element.classList.remove('has-frame')
+    resetClip(segment)
     segment.image.src = segment.still
   })
   render()
@@ -614,6 +732,7 @@ function enterStillsMode() {
 
 function onScroll() {
   targetScrollY = window.scrollY || window.pageYOffset
+  if (!mediaEnabled) enableMedia()
   if (reduceMotion) {
     renderedScrollY = targetScrollY
     render(renderedScrollY)
@@ -657,13 +776,7 @@ function onResize() {
 function releaseVideos(event) {
   // A back/forward-cache entry keeps these same video elements alive on return.
   if (event.persisted) return
-  segments.forEach((segment) => {
-    if (segment.video) {
-      segment.video.pause()
-      segment.video.removeAttribute('src')
-      segment.video.load()
-    }
-  })
+  segments.forEach(resetClip)
 }
 
 function toggleSiteLinks(event) {
